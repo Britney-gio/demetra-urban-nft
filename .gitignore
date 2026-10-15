@@ -147,3 +147,12 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Hardhat generated files
+/artifacts/
+/cache/
+/coverage/
+/coverage.json
+
+# Generated TypeScript bindings
+/types/ethers-contracts/
