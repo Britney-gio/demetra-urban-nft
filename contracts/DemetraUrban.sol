@@ -38,6 +38,9 @@ contract DemetraUrban is ERC721 {
         uint256 indexed tokenId
     ); // accettazione della richiesta di mint (NFT non ancora creato)
 
+    error MintAlreadyRequested(address wallet);
+    error MaxSupplyReached();
+
     event SuccessfulMint(
         uint256 indexed tokenId,
         address indexed sender,
@@ -51,4 +54,19 @@ contract DemetraUrban is ERC721 {
         remainingSupply[Variant.Gold] = GOLD_SUPPLY;
         remainingSupply[Variant.SuperGold] = SUPERGOLD_SUPPLY;
     } 
+
+    function requestMint() external {
+        if (hasRequestedMint[msg.sender]) {
+            revert MintAlreadyRequested(msg.sender);
+        }
+        if (totalRequested >= MAX_SUPPLY) {
+            revert MaxSupplyReached();
+        }
+        hasRequestedMint[msg.sender] = true;
+        totalRequested++;
+
+        uint256 tokenId = totalRequested;
+    }
+
+
 }
