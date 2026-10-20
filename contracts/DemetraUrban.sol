@@ -2,12 +2,15 @@
 pragma solidity ^0.8.34;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/dev/VRFConsumerBaseV2Plus.sol";
 
-contract DemetraUrban is ERC721 {
+contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     uint256 public constant MAX_SUPPLY = 100;
+    uint256 public totalRequested; // Richieste di mint totali, sia completate sia in attesa
+    uint256 public totalMinted; // Totale degli NFT creati
 
     enum Variant {
-        Undefined,
+        Undefined, // Valore predefinito per i token non ancora creati
         Essential,
         Gold,
         SuperGold
@@ -18,8 +21,7 @@ contract DemetraUrban is ERC721 {
     uint256 public constant SUPERGOLD_SUPPLY = 5;
 
     mapping(address => bool) public hasRequestedMint;
-    uint256 public totalRequested; // Richieste di mint totali, sia completate sia in attesa
-    uint256 public totalMinted; // Totale degli NFT creati
+   
     mapping(uint256 => Variant) public tokenVariant;
     mapping(uint256 => uint256) public tokenRandomNumber; 
     mapping(address => bool) public hasTourAccess;
@@ -38,9 +40,6 @@ contract DemetraUrban is ERC721 {
         uint256 indexed tokenId
     ); // accettazione della richiesta di mint (NFT non ancora creato)
 
-    error MintAlreadyRequested(address wallet);
-    error MaxSupplyReached();
-
     event SuccessfulMint(
         uint256 indexed tokenId,
         address indexed sender,
@@ -48,7 +47,9 @@ contract DemetraUrban is ERC721 {
         uint256 randomNumber
     ); // mint completato con successo (NFT creato)
 
-    
+    error MintAlreadyRequested(address wallet);
+    error MaxSupplyReached();  
+
     constructor() ERC721("Demetra Urban", "DURB") {
         remainingSupply[Variant.Essential] = ESSENTIAL_SUPPLY;
         remainingSupply[Variant.Gold] = GOLD_SUPPLY;
