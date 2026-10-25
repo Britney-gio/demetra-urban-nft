@@ -11,6 +11,8 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     uint256 public totalMinted; // Totale degli NFT creati
     uint256 public subscriptionId; // ID della sottoscrizione VRF
     bytes32 public keyHash; // configurazione del gas per la richiesta VRF
+    uint16 public requestConfirmations; // num di blocchi da attendere tra la richiesta e la risposta VRF
+    uint32 public callbackGasLimit; // limite di gas per la fx callback fullfillRandomWords
 
     enum Variant {
         Undefined, // Valore predefinito per i token non ancora creati
@@ -53,11 +55,13 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     error MintAlreadyRequested(address wallet);
     error MaxSupplyReached();  
 
-    constructor(address vrfCoordinator, uint256 vrfSubscriptionId, bytes32 vrfKeyHash) // al deploy ricevo indirizzo del coordinatore VRF e ID della subscription che identifica il c/c che finanzia le richieste VRF
+    constructor(address vrfCoordinator, uint256 vrfSubscriptionId, bytes32 vrfKeyHash, uint16 vrfRequestConfirmations, uint32 vrfCallbackGasLimit) // configurazione iniziale della collezione e di chainlink VRF
         VRFConsumerBaseV2Plus(vrfCoordinator) 
         ERC721("Demetra Urban", "DURB") {
         subscriptionId = vrfSubscriptionId;
         keyHash = vrfKeyHash;
+        requestConfirmations = vrfRequestConfirmations;
+        callbackGasLimit = vrfCallbackGasLimit;
         remainingSupply[Variant.Essential] = ESSENTIAL_SUPPLY;
         remainingSupply[Variant.Gold] = GOLD_SUPPLY;
         remainingSupply[Variant.SuperGold] = SUPERGOLD_SUPPLY;
