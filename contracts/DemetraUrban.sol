@@ -24,6 +24,8 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     uint256 public constant ESSENTIAL_SUPPLY = 70;
     uint256 public constant GOLD_SUPPLY = 25;
     uint256 public constant SUPERGOLD_SUPPLY = 5;
+    uint32 public constant NUM_WORDS = 1; // Quantità di numeri casuali richiesti a Chainlink VRF
+    bool public constant NATIVE_PAYMENT = true; // usiamo la valuta nativa della chain per pagare il VRF
 
     mapping(address => bool) public hasRequestedMint;   
     mapping(uint256 => Variant) public tokenVariant;
@@ -77,7 +79,26 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
         hasRequestedMint[msg.sender] = true;
         totalRequested++;
 
-        uint256 tokenId = totalRequested;
+        uint256 tokenId = totalRequested; // tokenId assegnato in base all'ordine di richiesta
+
+        VRFV2PlusClient.RandomWordsRequest memory request; // struct fornita dalla libreria per richiesta vrd in cui inseriamo i parametri della richiesta
+
+        request.subId = subscriptionId;
+        request.keyHash = keyHash;
+        request.requestConfirmations = requestConfirmations;
+        request.callbackGasLimit = callbackGasLimit;
+        request.numWords = NUM_WORDS;
+        request.extraArgs = VRFV2PlusClient._argsToBytes(
+            VRFV2PlusClient.ExtraArgsV1({
+                nativePayment: NATIVE_PAYMENT
+            }) // non ho campo diretto per nativePayment, quindi lo passo come extraArgs
+        );
+        uint256 requestId = s_vrfCoordinator.requestRandomWords(request); // invio della richiesta a Coordinator e avvia sua funzione requestRandomWords() che riceve nostra struct e restituisce requestId e lo conserva
+
+        requestToSender[requestId] = msg.sender; // memorizzo il wallet che ha richiesto il mint
+        requestToTokenId[requestId] = tokenId; // memorizzo il tokenId associato alla richiesta
+
+        emit AcceptedMintRequest(requestId, msg.sender, tokenId);
     }
 
     function fulfillRandomWords(uint256 requestId, uint256[] calldata randomNumbers) internal override {
