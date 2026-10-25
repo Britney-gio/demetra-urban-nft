@@ -3,11 +3,14 @@ pragma solidity ^0.8.34;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
+import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
 contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     uint256 public constant MAX_SUPPLY = 100;
     uint256 public totalRequested; // Richieste di mint totali, sia completate sia in attesa
     uint256 public totalMinted; // Totale degli NFT creati
+    uint256 public subscriptionId; // ID della sottoscrizione VRF
+    bytes32 public keyHash; // configurazione del gas per la richiesta VRF
 
     enum Variant {
         Undefined, // Valore predefinito per i token non ancora creati
@@ -50,9 +53,11 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     error MintAlreadyRequested(address wallet);
     error MaxSupplyReached();  
 
-    constructor(address vrfCoordinator) 
+    constructor(address vrfCoordinator, uint256 vrfSubscriptionId, bytes32 vrfKeyHash) // al deploy ricevo indirizzo del coordinatore VRF e ID della subscription che identifica il c/c che finanzia le richieste VRF
         VRFConsumerBaseV2Plus(vrfCoordinator) 
         ERC721("Demetra Urban", "DURB") {
+        subscriptionId = vrfSubscriptionId;
+        keyHash = vrfKeyHash;
         remainingSupply[Variant.Essential] = ESSENTIAL_SUPPLY;
         remainingSupply[Variant.Gold] = GOLD_SUPPLY;
         remainingSupply[Variant.SuperGold] = SUPERGOLD_SUPPLY;
