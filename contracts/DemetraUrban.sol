@@ -35,6 +35,7 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     mapping(uint256 => uint256) public requestToTokenId; // tokenId associato alla richiesta mint e VRF
     mapping(Variant => uint256) public remainingSupply;
     mapping(uint256 => bool) public requestFulfilled;
+    mapping(uint256 => address) public tokenRequester;
 
     event TourAssigned(
         address indexed sender, 
@@ -56,6 +57,9 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
 
     error MintAlreadyRequested(address wallet);
     error MaxSupplyReached();  
+    error NotTokenRequester(uint256 tokenId);
+    error VariantNotAssigned(uint256 tokenId);
+    error NFTAlreadyClaimed(uint256 tokenId);
 
     constructor(address vrfCoordinator, uint256 vrfSubscriptionId, bytes32 vrfKeyHash, uint16 vrfRequestConfirmations, uint32 vrfCallbackGasLimit) // configurazione iniziale della collezione e di chainlink VRF
         VRFConsumerBaseV2Plus(vrfCoordinator) 
@@ -97,9 +101,10 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
 
         requestToSender[requestId] = msg.sender; // memorizzo il wallet che ha richiesto il mint
         requestToTokenId[requestId] = tokenId; // memorizzo il tokenId associato alla richiesta
+        tokenRequester[tokenId] = msg.sender; // memorizzo wallet vhe ha richiesto mint
 
         emit AcceptedMintRequest(requestId, msg.sender, tokenId);
-    }
+    } // FUNZIONE DI SOLA RICHIESTA MINT NFT DURB 
 
     function fulfillRandomWords(uint256 requestId, uint256[] calldata randomNumbers) internal override {
         address sender = requestToSender[requestId]; 
@@ -144,5 +149,21 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
             hasTourAccess[sender] = true;
             emit TourAssigned(sender, tokenId);
         }
-    }
+    } 
+
+    function claimNFT(uint256 tokenId) external {
+        if (tokenRequester[tokenId] != msg.sender) {
+            revert NotTokenRequester(tokenId);
+        }
+        if (tokenVariant[tokenId] == Variant.Undefined) {
+            revert VariantNotAssigned(tokenId);
+        }
+        if (_ownerOf(tokenId) != address(0)){
+            revert NFTAlreadyClaimed(tokenId);
+        }
+        totalMinted++;
+        _safeMint(msg.sender, tokenId); // Mint NFT, fx ereditata da openZeppelin
+
+        emit SuccessfulMint(tokenId, msg.sender, tokenVariant[tokenId], tokenRandomNumber[tokenId]);
+    } // FUNZIONE DI RITIRO NFT
 }
