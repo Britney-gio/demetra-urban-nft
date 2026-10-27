@@ -1,5 +1,19 @@
 {
   "name": "Demetra Urban Super Gold",
-  "description": "In un ambiente futuristico, ecco la sneaker digitale della collezione Demetra Urban, rappresentata in stile pixelato con luci neon gialle e oro.",
-  "reward": "Diritto ad un tour presso l'azienda Demetra"
+  "description": "Una sneaker digitale della collezione Demetra Urban, rappresentata in stile pixelato in un ambiente futuristico con luci neon gialle e dorate.",
+  "image": "ipfs://bafybeigqql2qajoggu46hxp65qc6ddzgpwqa4f3je5o4de47sbwrlduj3a",
+  "attributes": [
+    {
+      "trait_type": "Variante",
+      "value": "Super Gold"
+    },
+    {
+      "trait_type": "Rarità",
+      "value": "Molto rara"
+    },
+    {
+      "trait_type": "Premio",
+      "value": "Diritto a un tour presso l'azienda Demetra per il wallet a cui è stata assegnata questa variante"
+    }
+  ]
 }

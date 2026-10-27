@@ -14,6 +14,11 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     uint16 public requestConfirmations; // num di blocchi da attendere tra la richiesta e la risposta VRF
     uint32 public callbackGasLimit; // limite di gas per la fx callback fullfillRandomWords
 
+    // Variabili che conterranno indirizzi IPFS dei JSON delle Varianti
+    string public essentialURI;
+    string public goldURI;
+    string public superGoldURI;
+
     enum Variant {
         Undefined, // Valore predefinito per i token non ancora creati
         Essential,
@@ -61,7 +66,7 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     error VariantNotAssigned(uint256 tokenId);
     error NFTAlreadyClaimed(uint256 tokenId);
 
-    constructor(address vrfCoordinator, uint256 vrfSubscriptionId, bytes32 vrfKeyHash, uint16 vrfRequestConfirmations, uint32 vrfCallbackGasLimit) // configurazione iniziale della collezione e di chainlink VRF
+    constructor(address vrfCoordinator, uint256 vrfSubscriptionId, bytes32 vrfKeyHash, uint16 vrfRequestConfirmations, uint32 vrfCallbackGasLimit, string memory essentialMetadataURI, string memory goldMetadataURI, string memory superGoldMetadataURI) // configurazione iniziale della collezione e di chainlink VRF
         VRFConsumerBaseV2Plus(vrfCoordinator) 
         ERC721("Demetra Urban", "DURB") {
         subscriptionId = vrfSubscriptionId;
@@ -71,7 +76,10 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
         remainingSupply[Variant.Essential] = ESSENTIAL_SUPPLY;
         remainingSupply[Variant.Gold] = GOLD_SUPPLY;
         remainingSupply[Variant.SuperGold] = SUPERGOLD_SUPPLY;
-    } 
+        essentialURI = essentialMetadataURI;
+        goldURI = goldMetadataURI;
+        superGoldURI = superGoldMetadataURI;
+        } 
 
     function requestMint() external {
         if (hasRequestedMint[msg.sender]) {

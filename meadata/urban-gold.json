@@ -1,5 +1,19 @@
 {
   "name": "Demetra Urban Gold",
-  "description": "In un ambiente futuristico, ecco la sneaker digitale della collezione Demetra Urban, rappresentata in stile pixelato con luci neon verdi.",
-  "reward": "Coupon sconto del 20% per tutte le calzature Demetra"
+  "description": "Una sneaker digitale della collezione Demetra Urban, rappresentata in stile pixelato in un ambiente futuristico con luci neon verdi.",
+  "image": "ipfs://bafybeidvdamv66y3b2bwcccl4qszxpwlxlrcypq67jqjbmmj7caeyt7zsu",
+  "attributes": [
+    {
+      "trait_type": "Variante",
+      "value": "Gold"
+    },
+    {
+      "trait_type": "Rarità",
+      "value": "Rara"
+    },
+    {
+      "trait_type": "Premio",
+      "value": "Sconto del 20% sugli acquisti Demetra per chi possiede questo NFT"
+    }
+  ]
 }
