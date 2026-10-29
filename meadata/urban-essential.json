@@ -12,8 +12,20 @@
       "value": "Comune"
     },
     {
+      "trait_type": "Provenienza dei materiali",
+      "value": "Materiali di origine organica ottenuti anche dalla valorizzazione della vinaccia, uno scarto della produzione vinicola."
+    },
+    {
+      "trait_type": "Produzione artigianale",
+      "value": "Cura artigianale nell'assemblaggio e nelle finiture, con attenzione alla qualità e al comfort della calzatura."
+    },
+    {
+      "trait_type": "Storia del design",
+      "value": "Urban nasce per portare la ricerca sostenibile di Demetra nella vita quotidiana, unendo l'ispirazione sportiva a un design pensato per la città."
+    },
+    {
       "trait_type": "Premio",
-      "value": "Accesso a contenuti esclusivi sulla produzione e sul design delle calzature Demetra"
+      "value": "Accesso a contenuti esclusivi sulla produzione e sul design delle calzature Demetra per chi possiede questo NFT"
     }
   ]
 }

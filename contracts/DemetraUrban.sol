@@ -80,7 +80,8 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
         goldURI = goldMetadataURI;
         superGoldURI = superGoldMetadataURI;
         } 
-
+    
+    
     function requestMint() external {
         if (hasRequestedMint[msg.sender]) {
             revert MintAlreadyRequested(msg.sender);
@@ -157,7 +158,7 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
             hasTourAccess[sender] = true;
             emit TourAssigned(sender, tokenId);
         }
-    } 
+    } // CALLBACK CHE RESTITUISCE E ASSEGNA CASUALITA'
 
     function claimNFT(uint256 tokenId) external {
         if (tokenRequester[tokenId] != msg.sender) {
@@ -178,7 +179,7 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     function tokenURI(uint256 tokenId) public view override returns (string memory){
         _requireOwned(tokenId); // verifico resistenza NFT
 
-        Variant variant = tokenVariant[tokenId]; // recupero cariante assegnata
+        Variant variant = tokenVariant[tokenId]; // recupero Variante assegnata
 
         if (variant == Variant.Essential) {
             return essentialURI;
@@ -188,6 +189,6 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
             return superGoldURI;
         } else {
             revert VariantNotAssigned(tokenId);
-        } // FUNZIONE CHE RESTITUISCE CARATTERISTICHE VARIANTI SALVATI SU IPFS
-    }
+        } 
+    } // FUNZIONE CHE RESTITUISCE CARATTERISTICHE VARIANTI SALVATI SU IPFS
 }

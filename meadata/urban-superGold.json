@@ -12,8 +12,20 @@
       "value": "Molto rara"
     },
     {
+      "trait_type": "Provenienza dei materiali",
+      "value": "Materiali di origine organica ottenuti anche dalla valorizzazione della vinaccia, uno scarto della produzione vinicola."
+    },
+    {
+      "trait_type": "Produzione artigianale",
+      "value": "Cura artigianale nell'assemblaggio e nelle finiture, con attenzione alla qualità e al comfort della calzatura."
+    },
+    {
+      "trait_type": "Storia del design",
+      "value": "Urban nasce per portare la ricerca sostenibile di Demetra nella vita quotidiana, unendo l'ispirazione sportiva a un design pensato per la città."
+    },
+    {
       "trait_type": "Premio",
-      "value": "Diritto a un tour presso l'azienda Demetra per il wallet a cui è stata assegnata questa variante"
+      "value": "Diritto a un tour presso l'azienda Demetra riservato al wallet che ha richiesto il mint e ottenuto questa variante. Il diritto non si trasferisce con l'NFT."
     }
   ]
 }
