@@ -174,4 +174,20 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
 
         emit SuccessfulMint(tokenId, msg.sender, tokenVariant[tokenId], tokenRandomNumber[tokenId]);
     } // FUNZIONE DI RITIRO NFT
+
+    function tokenURI(uint256 tokenId) public view override returns (string memory){
+        _requireOwned(tokenId); // verifico resistenza NFT
+
+        Variant variant = tokenVariant[tokenId]; // recupero cariante assegnata
+
+        if (variant == Variant.Essential) {
+            return essentialURI;
+        } else if (variant == Variant.Gold) {
+            return goldURI;
+        } else if (variant == Variant.SuperGold) {
+            return superGoldURI;
+        } else {
+            revert VariantNotAssigned(tokenId);
+        } // FUNZIONE CHE RESTITUISCE CARATTERISTICHE VARIANTI SALVATI SU IPFS
+    }
 }
