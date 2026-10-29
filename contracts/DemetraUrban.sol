@@ -42,6 +42,11 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     mapping(uint256 => bool) public requestFulfilled;
     mapping(uint256 => address) public tokenRequester;
 
+    event GoldAssigned(
+    address indexed sender,
+    uint256 indexed tokenId
+    ); // assegnazione varinate Gold
+
     event TourAssigned(
         address indexed sender, 
         uint256 indexed tokenId
@@ -146,6 +151,7 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
             assignedVariant = Variant.Essential;
         } else if(randomIndex < remainingSupply[Variant.Essential] + remainingSupply[Variant.Gold]) {
             assignedVariant = Variant.Gold;
+            emit GoldAssigned(sender, tokenId);
         } else {
             assignedVariant = Variant.SuperGold;
         }
