@@ -34,7 +34,7 @@ await demetra.on(demetra.filters.TourAssigned(), (sender, tokenId) => {
   console.log("Token ID:", tokenId.toString());
 });
 
-// Seguo i cambi di possessore dei soli Gold usando l'evento ereditato da ERC-721.
+// Seguo i cambi di possesso dei soli Gold usando l'evento ereditato da ERC-721.
 await demetra.on(demetra.filters.Transfer(), async (from, to, tokenId) => {
   if (from === ethers.ZeroAddress) {
     return;

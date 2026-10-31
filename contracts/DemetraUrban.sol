@@ -7,11 +7,13 @@ import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/V
 
 contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     uint256 public constant MAX_SUPPLY = 100;
+
     uint256 public totalRequested; // Richieste di mint totali, sia completate sia in attesa
     uint256 public totalMinted; // Totale degli NFT creati
+
     uint256 public subscriptionId; // ID della sottoscrizione VRF
-    bytes32 public keyHash; // configurazione del gas per la richiesta VRF
-    uint16 public requestConfirmations; // num di blocchi da attendere tra la richiesta e la risposta VRF
+    bytes32 public keyHash; // Identifica gas lane VRF
+    uint16 public requestConfirmations; // conferme richieste prima della risposta VRF
     uint32 public callbackGasLimit; // limite di gas per la fx callback fullfillRandomWords
 
     // Variabili che conterranno indirizzi IPFS dei JSON delle Varianti
@@ -20,7 +22,7 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     string public superGoldURI;
 
     enum Variant {
-        Undefined, // Valore predefinito per i token non ancora creati
+        Undefined, // Valore predefinito quando la variante non è ancora assegnata
         Essential,
         Gold,
         SuperGold
@@ -45,25 +47,25 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     event GoldAssigned(
     address indexed sender,
     uint256 indexed tokenId
-    ); // assegnazione varinate Gold
+    ); 
 
     event TourAssigned(
         address indexed sender, 
         uint256 indexed tokenId
-    ); // assegnazione del tour ai vincitori
+    ); 
 
     event AcceptedMintRequest(
         uint256 indexed requestId,
         address indexed sender,
         uint256 indexed tokenId
-    ); // accettazione della richiesta di mint (NFT non ancora creato)
+    ); // evento che segnala accettazione della richiesta di mint (NFT non ancora creato)
 
     event SuccessfulMint(
         uint256 indexed tokenId,
         address indexed sender,
         Variant indexed variant,
         uint256 randomNumber
-    ); // mint completato con successo (NFT creato)
+    ); // avento che segnala mint completato con successo (NFT creato)
 
     error MintAlreadyRequested(address wallet);
     error MaxSupplyReached();  
@@ -71,16 +73,28 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     error VariantNotAssigned(uint256 tokenId);
     error NFTAlreadyClaimed(uint256 tokenId);
 
-    constructor(address vrfCoordinator, uint256 vrfSubscriptionId, bytes32 vrfKeyHash, uint16 vrfRequestConfirmations, uint32 vrfCallbackGasLimit, string memory essentialMetadataURI, string memory goldMetadataURI, string memory superGoldMetadataURI) // configurazione iniziale della collezione e di chainlink VRF
+    constructor(
+        address vrfCoordinator, 
+        uint256 vrfSubscriptionId, 
+        bytes32 vrfKeyHash, 
+        uint16 vrfRequestConfirmations, 
+        uint32 vrfCallbackGasLimit, 
+        string memory essentialMetadataURI, 
+        string memory goldMetadataURI, 
+        string memory superGoldMetadataURI
+    ) 
         VRFConsumerBaseV2Plus(vrfCoordinator) 
-        ERC721("Demetra Urban", "DURB") {
+        ERC721("Demetra Urban", "DURB")
+    {
         subscriptionId = vrfSubscriptionId;
         keyHash = vrfKeyHash;
         requestConfirmations = vrfRequestConfirmations;
         callbackGasLimit = vrfCallbackGasLimit;
+
         remainingSupply[Variant.Essential] = ESSENTIAL_SUPPLY;
         remainingSupply[Variant.Gold] = GOLD_SUPPLY;
         remainingSupply[Variant.SuperGold] = SUPERGOLD_SUPPLY;
+
         essentialURI = essentialMetadataURI;
         goldURI = goldMetadataURI;
         superGoldURI = superGoldMetadataURI;
@@ -97,9 +111,9 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
         hasRequestedMint[msg.sender] = true;
         totalRequested++;
 
-        uint256 tokenId = totalRequested; // tokenId assegnato in base all'ordine di richiesta
+        uint256 tokenId = totalRequested; // tokenId prenotato prima di assegnazione casuale e del claim
 
-        VRFV2PlusClient.RandomWordsRequest memory request; // struct fornita dalla libreria per richiesta vrd in cui inseriamo i parametri della richiesta
+        VRFV2PlusClient.RandomWordsRequest memory request; // struct fornita dalla libreria per richiesta vrf in cui inseriamo i parametri della richiesta:
 
         request.subId = subscriptionId;
         request.keyHash = keyHash;
@@ -111,6 +125,7 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
                 nativePayment: NATIVE_PAYMENT
             }) // non ho campo diretto per nativePayment, quindi lo passo come extraArgs
         );
+        
         uint256 requestId = s_vrfCoordinator.requestRandomWords(request); // invio della richiesta a Coordinator e avvia sua funzione requestRandomWords() che riceve nostra struct e restituisce requestId e lo conserva
 
         requestToSender[requestId] = msg.sender; // memorizzo il wallet che ha richiesto il mint
@@ -118,53 +133,64 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
         tokenRequester[tokenId] = msg.sender; // memorizzo wallet vhe ha richiesto mint
 
         emit AcceptedMintRequest(requestId, msg.sender, tokenId);
-    } // FUNZIONE DI SOLA RICHIESTA MINT NFT DURB 
+    }
 
-    function fulfillRandomWords(uint256 requestId, uint256[] calldata randomNumbers) internal override {
-        address sender = requestToSender[requestId]; 
+    function fulfillRandomWords(
+        uint256 requestId,
+        uint256[] calldata randomNumbers
+        ) internal override {
+            address sender = requestToSender[requestId]; 
         
-        if (sender == address(0)) {
-            return;
-        }
-        
-        if (requestFulfilled[requestId]) {
-            return;
-        }
+            if (sender == address(0)) {
+                return;
+            }
+            
+            if (requestFulfilled[requestId]) {
+                return;
+            }
 
-        if (randomNumbers.length == 0) {
-            return;
-        }
+            if (randomNumbers.length == 0) {
+                return;
+            }
 
-        uint256 randomNumber = randomNumbers[0]; 
-        uint256 tokenId = requestToTokenId[requestId];
+            uint256 randomNumber = randomNumbers[0]; 
+            uint256 tokenId = requestToTokenId[requestId];
 
-        uint256 totalRemaining = remainingSupply[Variant.Essential] + remainingSupply[Variant.Gold] + remainingSupply[Variant.SuperGold]; 
+            uint256 totalRemaining = 
+            remainingSupply[Variant.Essential] +
+            remainingSupply[Variant.Gold] + 
+            remainingSupply[Variant.SuperGold]; 
 
-        if (totalRemaining == 0) {
-            return;
-        }
+            if (totalRemaining == 0) {
+                return;
+            }
 
-        uint256 randomIndex = randomNumber % totalRemaining;
-        Variant assignedVariant;
+            // Estrae posti disponibili e rispetta quantità varianti
+            uint256 randomIndex = randomNumber % totalRemaining;
+            Variant assignedVariant;
 
-        if(randomIndex < remainingSupply[Variant.Essential]) {
-            assignedVariant = Variant.Essential;
-        } else if(randomIndex < remainingSupply[Variant.Essential] + remainingSupply[Variant.Gold]) {
-            assignedVariant = Variant.Gold;
-            emit GoldAssigned(sender, tokenId);
-        } else {
-            assignedVariant = Variant.SuperGold;
-        }
-        requestFulfilled[requestId] = true;
-        remainingSupply[assignedVariant]--;
-        tokenVariant[tokenId] = assignedVariant;
-        tokenRandomNumber[tokenId] = randomNumber;
+            if(randomIndex < remainingSupply[Variant.Essential]) {
+                assignedVariant = Variant.Essential;
+            } else if(randomIndex < 
+            remainingSupply[Variant.Essential] + remainingSupply[Variant.Gold]
+            ) {
+                assignedVariant = Variant.Gold;
+                emit GoldAssigned(sender, tokenId);
+            } else {
+                assignedVariant = Variant.SuperGold;
+            }
 
-        if(assignedVariant == Variant.SuperGold) {
-            hasTourAccess[sender] = true;
-            emit TourAssigned(sender, tokenId);
-        }
-    } // CALLBACK CHE RESTITUISCE E ASSEGNA CASUALITA'
+            requestFulfilled[requestId] = true;
+            remainingSupply[assignedVariant]--;
+            tokenVariant[tokenId] = assignedVariant;
+            tokenRandomNumber[tokenId] = randomNumber;
+
+            // Il diritto al tour resta al richiesdente e non segue trasferimenti NFT
+            if(assignedVariant == Variant.SuperGold) {
+                hasTourAccess[sender] = true;
+                emit TourAssigned(sender, tokenId);
+            }
+    } 
 
     function claimNFT(uint256 tokenId) external {
         if (tokenRequester[tokenId] != msg.sender) {
@@ -176,14 +202,23 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
         if (_ownerOf(tokenId) != address(0)){
             revert NFTAlreadyClaimed(tokenId);
         }
+
         totalMinted++;
-        _safeMint(msg.sender, tokenId); // Mint NFT, fx ereditata da openZeppelin
 
-        emit SuccessfulMint(tokenId, msg.sender, tokenVariant[tokenId], tokenRandomNumber[tokenId]);
-    } // FUNZIONE DI RITIRO NFT
+        _safeMint(msg.sender, tokenId); // Mint NFT, fx ereditata da openZeppelin, se fallisce annulla anche incremento totalMinted
 
-    function tokenURI(uint256 tokenId) public view override returns (string memory){
-        _requireOwned(tokenId); // verifico resistenza NFT
+        emit SuccessfulMint(
+            tokenId, 
+            msg.sender, 
+            tokenVariant[tokenId], 
+            tokenRandomNumber[tokenId]
+            );
+    }
+
+    function tokenURI(
+        uint256 tokenId
+        ) public view override returns (string memory) {
+        _requireOwned(tokenId); // verifico esistenza NFT
 
         Variant variant = tokenVariant[tokenId]; // recupero Variante assegnata
 
@@ -196,5 +231,5 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
         } else {
             revert VariantNotAssigned(tokenId);
         } 
-    } // FUNZIONE CHE RESTITUISCE CARATTERISTICHE VARIANTI SALVATI SU IPFS
+    } 
 }
