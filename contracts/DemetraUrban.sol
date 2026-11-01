@@ -7,14 +7,22 @@ import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/V
 
 contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     uint256 public constant MAX_SUPPLY = 100;
+    uint256 public constant ESSENTIAL_SUPPLY = 70;
+    uint256 public constant GOLD_SUPPLY = 25;
+    uint256 public constant SUPERGOLD_SUPPLY = 5;
+
+    uint32 public constant NUM_WORDS = 1; // Quantità di numeri casuali richiesti a Chainlink VRF
+    bool public constant NATIVE_PAYMENT = true; // usiamo la valuta nativa della chain per pagare il VRF
 
     uint256 public totalRequested; // Richieste di mint totali, sia completate sia in attesa
     uint256 public totalMinted; // Totale degli NFT creati
+    uint public nextTokenToAssign = 1;
 
     uint256 public subscriptionId; // ID della sottoscrizione VRF
     bytes32 public keyHash; // Identifica gas lane VRF
     uint16 public requestConfirmations; // conferme richieste prima della risposta VRF
     uint32 public callbackGasLimit; // limite di gas per la fx callback fullfillRandomWords
+    address public immutable initialVrfCoordinator; // indirizzo autorizzato a consegnare casualità
 
     // Variabili che conterranno indirizzi IPFS dei JSON delle Varianti
     string public essentialURI;
@@ -28,15 +36,12 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
         SuperGold
     }
 
-    uint256 public constant ESSENTIAL_SUPPLY = 70;
-    uint256 public constant GOLD_SUPPLY = 25;
-    uint256 public constant SUPERGOLD_SUPPLY = 5;
-    uint32 public constant NUM_WORDS = 1; // Quantità di numeri casuali richiesti a Chainlink VRF
-    bool public constant NATIVE_PAYMENT = true; // usiamo la valuta nativa della chain per pagare il VRF
-
+    
+    
     mapping(address => bool) public hasRequestedMint;   
     mapping(uint256 => Variant) public tokenVariant;
     mapping(uint256 => uint256) public tokenRandomNumber; 
+    mapping(uint256 => bool) public randomnessReady;
     mapping(address => bool) public hasTourAccess;
     mapping(uint256 => address) public requestToSender; // Wallet associato alla richiesta mint e VRF
     mapping(uint256 => uint256) public requestToTokenId; // tokenId associato alla richiesta mint e VRF
@@ -60,6 +65,18 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
         uint256 indexed tokenId
     ); // evento che segnala accettazione della richiesta di mint (NFT non ancora creato)
 
+    event RandomnessReceived(
+        uint256 indexed requestId,
+        uint256 indexed tokenId,
+        uint256 randomNumber
+    );
+
+    event VariantAssigned(
+        uint256 indexed tokenId,
+        address indexed sender,
+        Variant indexed variant
+    );
+
     event SuccessfulMint(
         uint256 indexed tokenId,
         address indexed sender,
@@ -72,6 +89,8 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     error NotTokenRequester(uint256 tokenId);
     error VariantNotAssigned(uint256 tokenId);
     error NFTAlreadyClaimed(uint256 tokenId);
+    error InvalidBatchSize();
+
 
     constructor(
         address vrfCoordinator, 
@@ -86,6 +105,7 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
         VRFConsumerBaseV2Plus(vrfCoordinator) 
         ERC721("Demetra Urban", "DURB")
     {
+        initialVrfCoordinator = vrfCoordinator;     
         subscriptionId = vrfSubscriptionId;
         keyHash = vrfKeyHash;
         requestConfirmations = vrfRequestConfirmations;
@@ -139,88 +159,133 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
         uint256 requestId,
         uint256[] calldata randomNumbers
         ) internal override {
-            address sender = requestToSender[requestId]; 
-        
-            if (sender == address(0)) {
-                return;
+            // Rifiuto risposte da Coordinator sostitutivi
+            if (msg.sender != initialVrfCoordinator) {
+                revert OnlyCoordinatorCanFulfill(
+                    msg.sender,
+                    initialVrfCoordinator
+                );
             }
-            
+        
+            if (requestToSender[requestId] == address(0)) {
+            return;
+            }
+
             if (requestFulfilled[requestId]) {
-                return;
+            return;
             }
 
             if (randomNumbers.length == 0) {
                 return;
             }
 
-            uint256 randomNumber = randomNumbers[0]; 
             uint256 tokenId = requestToTokenId[requestId];
+            uint256 randomNumber = randomNumbers[0]; 
 
-            uint256 totalRemaining = 
-            remainingSupply[Variant.Essential] +
-            remainingSupply[Variant.Gold] + 
-            remainingSupply[Variant.SuperGold]; 
+            // Salvo la risposta senza assegnare ancora la variante.
+            requestFulfilled[requestId] = true;
+            tokenRandomNumber[tokenId] = randomNumber;
+            randomnessReady[tokenId] = true;
 
-            if (totalRemaining == 0) {
-                return;
+        emit RandomnessReceived(requestId, tokenId, randomNumber);
+    }
+
+    function assignVariants(uint256 maxTokens) external {
+        if (maxTokens == 0 || maxTokens > MAX_SUPPLY) {
+            revert InvalidBatchSize();
+        }
+
+        uint256 processed;
+
+        // Elaboro solo token consecutivi, nell'ordine di prenotazione.
+        while (
+            processed < maxTokens &&
+            nextTokenToAssign <= totalRequested
+        ) {
+            uint256 tokenId = nextTokenToAssign;
+
+            // Una risposta mancante blocca l'assegnazione dei token successivi.
+            if (!randomnessReady[tokenId]) {
+                break;
             }
 
-            // Estrae posti disponibili e rispetta quantità varianti
-            uint256 randomIndex = randomNumber % totalRemaining;
+            uint256 totalRemaining =
+                remainingSupply[Variant.Essential] +
+                remainingSupply[Variant.Gold] +
+                remainingSupply[Variant.SuperGold];
+
+            uint256 randomIndex =
+                tokenRandomNumber[tokenId] % totalRemaining;
+
             Variant assignedVariant;
 
-            if(randomIndex < remainingSupply[Variant.Essential]) {
+            if (randomIndex < remainingSupply[Variant.Essential]) {
                 assignedVariant = Variant.Essential;
-            } else if(randomIndex < 
-            remainingSupply[Variant.Essential] + remainingSupply[Variant.Gold]
+            } else if (
+                randomIndex <
+                remainingSupply[Variant.Essential] +
+                    remainingSupply[Variant.Gold]
             ) {
                 assignedVariant = Variant.Gold;
-                emit GoldAssigned(sender, tokenId);
             } else {
                 assignedVariant = Variant.SuperGold;
             }
 
-            requestFulfilled[requestId] = true;
+            address sender = tokenRequester[tokenId];
+
             remainingSupply[assignedVariant]--;
             tokenVariant[tokenId] = assignedVariant;
-            tokenRandomNumber[tokenId] = randomNumber;
 
-            // Il diritto al tour resta al richiesdente e non segue trasferimenti NFT
-            if(assignedVariant == Variant.SuperGold) {
+            if (assignedVariant == Variant.SuperGold) {
+                // Il tour resta al richiedente e non segue il trasferimento.
                 hasTourAccess[sender] = true;
+            }
+
+            nextTokenToAssign++;
+            processed++;
+
+            emit VariantAssigned(tokenId, sender, assignedVariant);
+
+            if (assignedVariant == Variant.Gold) {
+                emit GoldAssigned(sender, tokenId);
+            } else if (assignedVariant == Variant.SuperGold) {
                 emit TourAssigned(sender, tokenId);
             }
-    } 
+        }
+    }
 
     function claimNFT(uint256 tokenId) external {
         if (tokenRequester[tokenId] != msg.sender) {
             revert NotTokenRequester(tokenId);
         }
+
         if (tokenVariant[tokenId] == Variant.Undefined) {
             revert VariantNotAssigned(tokenId);
         }
-        if (_ownerOf(tokenId) != address(0)){
+
+        if (_ownerOf(tokenId) != address(0)) {
             revert NFTAlreadyClaimed(tokenId);
         }
 
         totalMinted++;
 
-        _safeMint(msg.sender, tokenId); // Mint NFT, fx ereditata da openZeppelin, se fallisce annulla anche incremento totalMinted
+        // Un fallimento del mint annulla anche l'incremento di totalMinted.
+        _safeMint(msg.sender, tokenId);
 
         emit SuccessfulMint(
-            tokenId, 
-            msg.sender, 
-            tokenVariant[tokenId], 
+            tokenId,
+            msg.sender,
+            tokenVariant[tokenId],
             tokenRandomNumber[tokenId]
-            );
+        );
     }
 
     function tokenURI(
         uint256 tokenId
-        ) public view override returns (string memory) {
-        _requireOwned(tokenId); // verifico esistenza NFT
+    ) public view override returns (string memory) {
+        _requireOwned(tokenId);
 
-        Variant variant = tokenVariant[tokenId]; // recupero Variante assegnata
+        Variant variant = tokenVariant[tokenId];
 
         if (variant == Variant.Essential) {
             return essentialURI;
@@ -230,6 +295,6 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
             return superGoldURI;
         } else {
             revert VariantNotAssigned(tokenId);
-        } 
-    } 
+        }
+    }
 }
