@@ -70,6 +70,28 @@ await demetra.on(
   },
 );
 
+// Segnalo la ricezione della casualità, prima dell'assegnazione.
+await demetra.on(
+  demetra.filters.RandomnessReceived(),
+  (requestId, tokenId, randomNumber) => {
+    console.log("Casualità VRF ricevuta: in attesa di assegnazione");
+    console.log("ID Richiesta:", requestId.toString());
+    console.log("Token ID:", tokenId.toString());
+    console.log("Numero casuale:", randomNumber.toString());
+  },
+);
+
+// Segnalo la variante assegnata: il richiedente può procedere al claim.
+await demetra.on(
+  demetra.filters.VariantAssigned(),
+  (tokenId, sender, variant) => {
+    console.log("Variante DURB assegnata: NFT disponibile per il ritiro");
+    console.log("Token ID:", tokenId.toString());
+    console.log("Wallet richiedente:", sender);
+    console.log("Variante DURB:", variant.toString());
+  },
+);
+
 // Segnalo la creazione dell'NFT
 await demetra.on(
   demetra.filters.SuccessfulMint(),

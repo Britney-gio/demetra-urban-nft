@@ -13,17 +13,18 @@ offre un premio diverso in base alla variante assegnata casualmente.
 
 La collezione prevede un massimo di 100 NFT:
 
-| Variante | Rarità | Quantità massima |
-|---|---|---:|
-| Urban Essential | Comune | 70 |
-| Urban Gold | Rara | 25 |
-| Urban Super Gold | Molto rara | 5 |
+| Variante         | Rarità     | Quantità massima |
+| ---------------- | ---------- | ---------------: |
+| Urban Essential  | Comune     |               70 |
+| Urban Gold       | Rara       |               25 |
+| Urban Super Gold | Molto rara |                5 |
 
 Ogni wallet potrà effettuare una sola richiesta di mint accettata.
 Trasferire il proprio NFT non consentirà di richiederne un altro.
-Il mint sarà gratuito, escluso il gas delle transazioni di richiesta e ritiro. I costi del servizio Chainlink VRF sono finanziati da Demetra.
-Ogni NFT avrà un tokenId unico. Gli NFT della stessa variante
-condivideranno immagine e metadati.
+Il mint sarà gratuito, escluso il gas delle transazioni di richiesta e ritiro.
+L’assegnazione delle varianti richiede una transazione aggiuntiva,
+pagata da chi la esegue. I costi del servizio Chainlink VRF sono finanziati
+da Demetra.
 
 ## Premi
 
@@ -34,9 +35,14 @@ condivideranno immagine e metadati.
 
 L’accesso ai contenuti Essential e lo sconto Gold seguiranno
 il possesso attuale dell’NFT della rispettiva variante.
-I premi saranno descritti nei metadati; l'erogazione concreta richiederà le integrazioniindicate negli sviluppi futuri.
-Il diritto al tour viene invece registrato per il wallet che ha richiesto il mint e ricevuto l'assegnazione Super Gold. Resta a quel wallet anche dopo il trasferimento del token. 
-Sono assegnabili al massimo 5 tour, uno per ogni DURB Super Gold. Il listener previsto segnalerà queste assegnazioni a Demetra.
+I premi saranno descritti nei metadati; l’erogazione concreta richiederà
+le integrazioni indicate negli sviluppi futuri.
+
+Il diritto al tour viene invece registrato per il wallet che ha richiesto
+il mint e ricevuto l’assegnazione Super Gold.
+Resta a quel wallet anche dopo il trasferimento del token.
+Sono assegnabili al massimo 5 tour, uno per ogni assegnazione Super Gold.
+Il listener implementato segnala queste assegnazioni a Demetra nel terminale.
 
 ## Scelte tecniche
 
@@ -44,7 +50,8 @@ Sono assegnabili al massimo 5 tour, uno per ogni DURB Super Gold. Il listener pr
 
 Hardhat viene utilizzato per compilare i contratti Solidity,
 eseguire i test e gestire il deploy sulla rete di test Sepolia.
-Test e script saranno scritti in TypeScript con Mocha, Chai ed Ethers.js.
+Test e script utilizzano TypeScript; per i test sono previsti
+Mocha e Chai, mentre l’interazione con la blockchain utilizza Ethers.js.
 
 ### OpenZeppelin Contracts
 
@@ -62,72 +69,181 @@ L’assegnazione considera le disponibilità rimaste e le aggiorna
 dopo ogni estrazione, rispettando il limite di 70 Essential,
 25 Gold e 5 Super Gold. Il numero casuale viene conservato
 nel contratto ed è consultabile.
-È stato scelto il modello subscription, che sarà finanziata
-da Demetra con ETH di Sepolia.
+
+È stato scelto il modello subscription.
+La sottoscrizione sarà finanziata da Demetra con ETH di Sepolia.
 
 La richiesta utilizza:
-| Parametro | Funzione |
-|---|---|
-| Coordinator | Contratto Chainlink che riceve la richiesta e consegna la risposta |
-| subscriptionId | Identificativo del conto che paga il servizio |
-| keyHash | Identificativo della configurazione VRF e della gas lane |
-| requestConfirmations | Conferme da attendere prima della risposta |
-| callbackGasLimit | Budget di gas per eseguire la callback |
-| NUM_WORDS | Quantità di numeri casuali richiesti, fissata a 1 |
-| NATIVE_PAYMENT | Pagamento in ETH dalla subscription, impostato a true |
 
-Ogni requestId viene collegato al wallet e al token prenotato:
+| Parametro              | Funzione                                                           |
+| ---------------------- | ------------------------------------------------------------------ |
+| Coordinator            | Contratto Chainlink che riceve la richiesta e consegna la risposta |
+| `subscriptionId`       | Identificativo del conto che paga il servizio                      |
+| `keyHash`              | Identificativo della configurazione VRF e della gas lane           |
+| `requestConfirmations` | Conferme richieste prima della risposta                            |
+| `callbackGasLimit`     | Budget di gas per eseguire la callback                             |
+| `NUM_WORDS`            | Quantità di numeri casuali richiesti, fissata a `1`                |
+| `NATIVE_PAYMENT`       | Pagamento in ETH dalla subscription, impostato a `true`            |
+
+Ogni `requestId` viene collegato al wallet e al token prenotato:
 questo consente di gestire le risposte anche se arrivano
 in ordine diverso dalle richieste.
 
+La ricezione del numero casuale è separata dall’assegnazione della variante.
+Le risposte vengono salvate quando arrivano, mentre le varianti vengono
+assegnate seguendo l’ordine dei `tokenId` prenotati. In questo modo,
+l’ordine di arrivo delle risposte non cambia l’ordine delle assegnazioni.
+
 ### IPFS
 
-Immagini e metadati saranno conservati su IPFS (da completare)
+Le tre immagini e i tre JSON dei metadati sono pubblicati su IPFS
+tramite Pinata. La loro visualizzazione è stata verificata attraverso
+i collegamenti forniti dal servizio.
 
-## DURB: richiesta, casualità e ritiro
+Ogni JSON contiene nome, descrizione, immagine, variante, rarità,
+provenienza dei materiali, produzione artigianale, storia del design
+e descrizione del premio.
+
+Gli indirizzi IPFS dei JSON vengono forniti al costruttore durante
+il deploy e non sono modificabili attraverso funzioni del contratto.
+Il costruttore rifiuta URI vuoti.
+
+## DURB: richiesta, casualità, assegnazione e ritiro
 
 ### 1. Richiesta
 
-L’utente chiama requestMint. Il contratto verifica che il wallet
-non abbia già richiesto un NFT e che ci siano posti disponibili.
-Prenota quindi un tokenId e invia la richiesta al Coordinator VRF.
-Il requestId restituito viene associato al wallet e al token.
-L’evento AcceptedMintRequest segnala la richiesta accettata.
+L’utente chiama `requestMint`. Il contratto verifica che il wallet
+non abbia già richiesto un NFT, che ci siano posti disponibili
+e che il Coordinator configurato coincida con quello iniziale
+fissato al deploy.
+
+Prenota quindi un `tokenId` e invia la richiesta al Coordinator VRF.
+Il `requestId` restituito viene associato al wallet e al token.
+L’evento `AcceptedMintRequest` segnala la richiesta accettata.
 Se la transazione fallisce, anche la prenotazione viene annullata.
 
-### 2. Assegnazione casuale
+### 2. Ricezione della casualità
 
 Il risultato arriva in una transazione successiva.
 La base Chainlink verifica che il chiamante sia il Coordinator
-autorizzato e richiama fulfillRandomWords, implementata
-nel contratto DemetraUrban.
-La callback recupera la richiesta, assegna la variante
-e salva il numero casuale. In caso di Super Gold, registra
-il diritto al tour ed emette TourAssigned.
-In questa fase l’NFT non è ancora creato.
+attualmente configurato. Il nostro contratto controlla inoltre
+che coincida con `initialVrfCoordinator`, fissato al deploy
+e non modificabile.
 
-### 3. Ritiro
+`fulfillRandomWords` salva il numero casuale e segna la richiesta
+come soddisfatta, senza assegnare ancora la variante.
+Il mapping `randomnessReady` indica che la risposta è disponibile,
+anche quando il numero ricevuto è zero.
+L’evento `RandomnessReceived` segnala la ricezione.
 
-Il richiedente chiama claimNFT indicando il tokenId prenotato.
+### 3. Assegnazione ordinata
+
+Chiunque può chiamare `assignVariants(maxTokens)`, pagando il gas.
+La funzione elabora i token nell’ordine di prenotazione,
+partendo da `nextTokenToAssign`, senza permettere di saltarli.
+
+Per ogni token con casualità disponibile, assegna la variante
+in base al numero salvato e alle quantità rimaste.
+Aggiorna le disponibilità ed emette `VariantAssigned`.
+Per `Variant.Gold` emette anche `GoldAssigned`;
+per `Variant.SuperGold` registra il diritto al tour
+ed emette `TourAssigned`.
+
+`maxTokens` limita quanti token elaborare nella singola transazione,
+con un valore compreso tra `1` e `100`.
+Se manca la risposta del prossimo token, l’elaborazione si ferma.
+L’NFT non è ancora creato.
+
+### 4. Ritiro
+
+Il richiedente chiama `claimNFT` indicando il `tokenId` prenotato.
 Il contratto verifica che il chiamante sia il richiedente originale,
 che la variante sia assegnata e che il token non sia già stato ritirato.
-Incrementa quindi totalMinted, crea l’NFT con _safeMint
-di OpenZeppelin ed emette SuccessfulMint.
+
+Incrementa quindi `totalMinted`, crea l’NFT con `_safeMint`
+di OpenZeppelin ed emette `SuccessfulMint`.
 Se il ritiro fallisce, vengono annullate le modifiche della transazione,
-compreso l’incremento di totalMinted. La prenotazione e la variante
+compreso l’incremento di `totalMinted`. La prenotazione e la variante
 restano registrate, consentendo un nuovo tentativo.
 
-La separazione protegge l’assegnazione VRF da eventuali errori
-durante la ricezione dell’NFT. Richiesta e ritiro richiedono
-due transazioni dell’utente, entrambe con costo di gas.
+La separazione protegge la ricezione VRF e l’assegnazione da eventuali
+errori durante la ricezione dell’NFT. Richiesta e ritiro richiedono
+due transazioni dell’utente. L’assegnazione richiede una transazione
+separata, eseguibile anche da Demetra.
 
 ### Contatori
 
-- totalRequested: richieste accettate, sia in attesa sia già elaborate.
-- totalMinted: NFT effettivamente creati.
+- `totalRequested`: richieste accettate, sia in attesa sia già elaborate.
+- `totalMinted`: NFT effettivamente creati.
+- `nextTokenToAssign`: prossimo token da elaborare nell’assegnazione ordinata.
 
 Una prenotazione occupa un posto anche prima del ritiro.
 
+## Listener degli eventi
+
+Lo script `scripts/listen-events.ts` ascolta gli eventi del contratto
+e mostra nel terminale le informazioni utili a Demetra.
+L’indirizzo viene letto dalla variabile d’ambiente
+`DEMETRA_CONTRACT_ADDRESS`.
+
+Sono monitorati `AcceptedMintRequest`, `GoldAssigned`, `TourAssigned`,
+`SuccessfulMint` e `Transfer`. Per `Transfer` vengono esclusi i mint
+e mostrati soltanto i cambi di possessore degli NFT Gold.
+
+`GoldAssigned` segnala il richiedente che ha ottenuto la variante:
+per verificare lo sconto occorre comunque controllare il possessore attuale.
+
+Sono monitorati anche `RandomnessReceived`, che segnala la ricezione
+della casualità, e `VariantAssigned`, che segnala l’assegnazione
+della variante prima del ritiro.
+
+## Limiti del prototipo
+
+### Una richiesta per indirizzo, non per persona
+
+Una persona può utilizzare più wallet e ottenere più prenotazioni,
+consumando posti disponibili e fondi della subscription VRF.
+Il contratto limita le richieste per indirizzo, senza identificare
+la persona che lo controlla.
+
+### Sostituzione del Coordinator
+
+La libreria Chainlink permette al proprietario del contratto
+o al Coordinator attuale di sostituire il Coordinator configurato.
+Il nostro contratto rifiuta nuove richieste se il Coordinator è diverso
+da quello iniziale e rifiuta risposte provenienti dal sostituto.
+
+Questa protezione impedisce al sostituto di fornire numeri arbitrari
+per le assegnazioni, ma la sostituzione può interrompere il servizio.
+
+### Attesa delle risposte VRF
+
+L’assegnazione segue l’ordine di prenotazione per impedire
+che l’ordine di arrivo delle risposte influenzi la variante
+assegnata a ciascun utente. Infatti, ogni assegnazione modifica
+le quantità disponibili per quelle successive.
+
+Questa scelta privilegia la correttezza dell’assegnazione:
+se una risposta precedente manca o la callback fallisce,
+anche le assegnazioni successive restano bloccate.
+Non sono previsti salti o nuove estrazioni.
+
+Occorre quindi finanziare la subscription e configurare correttamente
+i parametri VRF, in particolare il gas della callback.
+
+### Monitoraggio e disponibilità dei contenuti
+
+Il listener funziona mentre lo script è attivo e non recupera
+gli eventi persi durante arresti o disconnessioni.
+La disponibilità di immagini e metadati richiede il mantenimento
+del pinning su IPFS.
+
+### Verifiche ancora da completare
+
+Compilazione e controllo TypeScript sono passati.
+È stata svolta una prima revisione manuale della sicurezza,
+ma le protezioni devono ancora essere verificate con i test Hardhat.
+La revisione manuale non costituisce un audit indipendente.
 
 ## Implementazioni future
 
@@ -154,11 +270,12 @@ Realizzazione di un modulo attraverso cui il vincitore potrà
 comunicare a Demetra i propri recapiti e organizzare il tour.
 Il sistema verificherà il diritto registrato nel contratto e,
 tramite una firma, il controllo del wallet premiato.
+
 Non sarà necessario possedere ancora l’NFT, perché il diritto
-resterà al wallet che lo ha mintato.
+resterà al wallet che ha richiesto il mint e ottenuto Super Gold.
 I recapiti saranno raccolti fuori dalla blockchain.
 La prenotazione e la gestione dell’utilizzo del premio saranno
-poi gestite dal reparto commerciale dell'azienda.
+poi gestite dal reparto commerciale dell’azienda.
 
 ### Gestione dei destinatari incompatibili
 
