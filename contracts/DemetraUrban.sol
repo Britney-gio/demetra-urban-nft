@@ -90,6 +90,7 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     error VariantNotAssigned(uint256 tokenId);
     error NFTAlreadyClaimed(uint256 tokenId);
     error InvalidBatchSize();
+    error EmptyMetadataURI();
 
 
     constructor(
@@ -105,6 +106,14 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
         VRFConsumerBaseV2Plus(vrfCoordinator) 
         ERC721("Demetra Urban", "DURB")
     {
+        if (
+            bytes(essentialMetadataURI).length == 0 ||
+            bytes(goldMetadataURI).length == 0 ||
+            bytes(superGoldMetadataURI).length == 0
+        ) {
+        revert EmptyMetadataURI();
+        }
+
         initialVrfCoordinator = vrfCoordinator;     
         subscriptionId = vrfSubscriptionId;
         keyHash = vrfKeyHash;
