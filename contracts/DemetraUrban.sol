@@ -91,6 +91,8 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     error NFTAlreadyClaimed(uint256 tokenId);
     error InvalidBatchSize();
     error EmptyMetadataURI();
+    error CoordinatorChanged();
+
 
 
     constructor(
@@ -131,6 +133,9 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     
     
     function requestMint() external {
+        if (address(s_vrfCoordinator) != initialVrfCoordinator) {
+            revert CoordinatorChanged();
+        }
         if (hasRequestedMint[msg.sender]) {
             revert MintAlreadyRequested(msg.sender);
         }
