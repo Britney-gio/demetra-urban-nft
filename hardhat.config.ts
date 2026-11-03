@@ -4,6 +4,9 @@ import { configVariable, defineConfig } from "hardhat/config";
 export default defineConfig({
   plugins: [hardhatToolboxMochaEthersPlugin],
   solidity: {
+    npmFilesToBuild: [
+      "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol",
+    ],
     profiles: {
       default: {
         version: "0.8.34",
