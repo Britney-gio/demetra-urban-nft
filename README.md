@@ -149,6 +149,20 @@ Per `Variant.Gold` emette anche `GoldAssigned`;
 per `Variant.SuperGold` registra il diritto al tour
 ed emette `TourAssigned`.
 
+Il `tokenId` identifica l’NFT e va da 1 a 100: non determina
+la variante. Anche il primo NFT può essere Super Gold.
+
+La variante viene scelta tramite `randomIndex`, calcolato come
+`numero casuale % totale delle disponibilità rimaste`.
+Alla prima assegnazione gli indici 0–69 corrispondono a Essential,
+70–94 a Gold e 95–99 a Super Gold.
+
+Dopo ogni assegnazione, gli intervalli vengono aggiornati in base
+alle quantità rimaste. Gli indici vengono riutilizzati:
+non sono identificativi degli NFT né posti che restano occupati.
+Completando tutte le 100 assegnazioni si ottengono esattamente
+70 Essential, 25 Gold e 5 Super Gold.
+
 `maxTokens` limita quanti token elaborare nella singola transazione,
 con un valore compreso tra `1` e `100`.
 Se manca la risposta del prossimo token, l’elaborazione si ferma.
