@@ -132,3 +132,139 @@ it("Rifiuta una seconda richiesta dallo stesso wallet", async function () {
   expect(await demetra.totalRequested()).to.equal(1n);
   expect(await demetra.tokenRequester(2n)).to.equal(ethers.ZeroAddress);
 });
+
+it("Salva la casualità ricevuta senza assegnare la variante", async function () {
+  const { demetra, coordinator, user } =
+    await networkHelpers.loadFixture(deployDemetraFixture);
+
+  const requestTx = await demetra.connect(user).requestMint();
+  await requestTx.wait();
+
+  const requests = await demetra.queryFilter(
+    demetra.filters.AcceptedMintRequest(),
+  );
+  const requestId = requests[0]!.args.requestId;
+
+  await expect(
+    coordinator.fulfillRandomWordsWithOverride(
+      requestId,
+      await demetra.getAddress(),
+      [0n],
+    ),
+  )
+    .to.emit(demetra, "RandomnessReceived")
+    .withArgs(requestId, 1n, 0n);
+
+  expect(await demetra.requestFulfilled(requestId)).to.equal(true);
+  expect(await demetra.randomnessReady(1n)).to.equal(true);
+  expect(await demetra.tokenRandomNumber(1n)).to.equal(0n);
+
+  expect(await demetra.tokenVariant(1n)).to.equal(0n);
+  expect(await demetra.nextTokenToAssign()).to.equal(1n);
+  expect(await demetra.totalMinted()).to.equal(0n);
+});
+
+it("Assegna Essential al primo token usando la casualità ricevuta", async function () {
+  const { demetra, coordinator, user, otherUser } =
+    await networkHelpers.loadFixture(deployDemetraFixture);
+
+  const requestTx = await demetra.connect(user).requestMint();
+  await requestTx.wait();
+
+  const requests = await demetra.queryFilter(
+    demetra.filters.AcceptedMintRequest(),
+  );
+  const requestId = requests[0]!.args.requestId;
+
+  const fulfillmentTx = await coordinator.fulfillRandomWordsWithOverride(
+    requestId,
+    await demetra.getAddress(),
+    [0n],
+  );
+  await fulfillmentTx.wait();
+
+  await expect(
+    demetra.connect(otherUser).assignVariants(1n),
+  )
+    .to.emit(demetra, "VariantAssigned")
+    .withArgs(1n, user.address, 1n);
+
+  expect(await demetra.tokenVariant(1n)).to.equal(1n);
+  expect(await demetra.remainingSupply(1n)).to.equal(69n);
+  expect(await demetra.remainingSupply(2n)).to.equal(25n);
+  expect(await demetra.remainingSupply(3n)).to.equal(5n);
+  expect(await demetra.nextTokenToAssign()).to.equal(2n);
+  expect(await demetra.totalMinted()).to.equal(0n);
+});
+
+it("Assegna Gold al primo token usando la casualità ricevuta", async function () {
+  const { demetra, coordinator, user, otherUser } =
+    await networkHelpers.loadFixture(deployDemetraFixture);
+
+  const requestTx = await demetra.connect(user).requestMint();
+  await requestTx.wait();
+
+  const requests = await demetra.queryFilter(
+    demetra.filters.AcceptedMintRequest(),
+  );
+  const requestId = requests[0]!.args.requestId;
+
+  const fulfillmentTx = await coordinator.fulfillRandomWordsWithOverride(
+    requestId,
+    await demetra.getAddress(),
+    [70n],
+  );
+  await fulfillmentTx.wait();
+
+  await expect(
+    demetra.connect(otherUser).assignVariants(1n),
+  )
+    .to.emit(demetra, "VariantAssigned")
+    .withArgs(1n, user.address, 2n)
+    .and.to.emit(demetra, "GoldAssigned")
+    .withArgs(user.address, 1n);
+
+  expect(await demetra.tokenVariant(1n)).to.equal(2n);
+  expect(await demetra.remainingSupply(1n)).to.equal(70n);
+  expect(await demetra.remainingSupply(2n)).to.equal(24n);
+  expect(await demetra.remainingSupply(3n)).to.equal(5n);
+  expect(await demetra.hasTourAccess(user.address)).to.equal(false);
+  expect(await demetra.nextTokenToAssign()).to.equal(2n);
+  expect(await demetra.totalMinted()).to.equal(0n);
+});
+
+it("Assegna SuperGold al primo token usando la casualità ricevuta", async function () {
+  const { demetra, coordinator, user, otherUser } =
+    await networkHelpers.loadFixture(deployDemetraFixture);
+
+  const requestTx = await demetra.connect(user).requestMint();
+  await requestTx.wait();
+
+  const requests = await demetra.queryFilter(
+    demetra.filters.AcceptedMintRequest(),
+  );
+  const requestId = requests[0]!.args.requestId;
+
+  const fulfillmentTx = await coordinator.fulfillRandomWordsWithOverride(
+    requestId,
+    await demetra.getAddress(),
+    [95n],
+  );
+  await fulfillmentTx.wait();
+
+  await expect(
+    demetra.connect(otherUser).assignVariants(1n),
+  )
+    .to.emit(demetra, "VariantAssigned")
+    .withArgs(1n, user.address, 3n)
+    .and.to.emit(demetra, "TourAssigned")
+    .withArgs(user.address, 1n);
+
+  expect(await demetra.tokenVariant(1n)).to.equal(3n);
+  expect(await demetra.remainingSupply(1n)).to.equal(70n);
+  expect(await demetra.remainingSupply(2n)).to.equal(25n);
+  expect(await demetra.remainingSupply(3n)).to.equal(4n);
+  expect(await demetra.hasTourAccess(user.address)).to.equal(true);
+  expect(await demetra.nextTokenToAssign()).to.equal(2n);
+  expect(await demetra.totalMinted()).to.equal(0n);
+});
