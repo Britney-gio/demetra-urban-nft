@@ -88,6 +88,7 @@ async function deployDemetraFixture() {
 }
 
 describe("DemetraUrban", function () {
+
   it("Imposta nome e simbolo della collezione correttamente", async function () {
     // Carica la preparazione iniziale o ne ripristina lo snapshot.
     const { demetra } = await networkHelpers.loadFixture(deployDemetraFixture);
@@ -95,4 +96,39 @@ describe("DemetraUrban", function () {
     expect(await demetra.name()).to.equal("Demetra Urban");
     expect(await demetra.symbol()).to.equal("DURB");
   });
+});
+
+it("Prenota il primo NFT senza crearlo", async function () {
+  const { demetra, user } = await networkHelpers.loadFixture(
+    deployDemetraFixture,
+  );
+
+  const requestTx = await demetra.connect(user).requestMint();
+  await requestTx.wait();
+
+  expect(await demetra.totalRequested()).to.equal(1n);
+  expect(await demetra.hasRequestedMint(user.address)).to.equal(true);
+  expect(await demetra.tokenRequester(1n)).to.equal(user.address);
+
+  expect(await demetra.totalMinted()).to.equal(0n);
+  expect(await demetra.tokenVariant(1n)).to.equal(0n);
+  expect(await demetra.balanceOf(user.address)).to.equal(0n);
+});
+
+it("Rifiuta una seconda richiesta dallo stesso wallet", async function () {
+  const { demetra, user } = await networkHelpers.loadFixture(
+    deployDemetraFixture,
+  );
+
+  const requestTx = await demetra.connect(user).requestMint();
+  await requestTx.wait();
+
+  await expect(
+    demetra.connect(user).requestMint(),
+  )
+    .to.be.revertedWithCustomError(demetra, "MintAlreadyRequested")
+    .withArgs(user.address);
+
+  expect(await demetra.totalRequested()).to.equal(1n);
+  expect(await demetra.tokenRequester(2n)).to.equal(ethers.ZeroAddress);
 });
