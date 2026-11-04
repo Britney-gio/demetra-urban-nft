@@ -268,3 +268,71 @@ it("Assegna SuperGold al primo token usando la casualità ricevuta", async funct
   expect(await demetra.nextTokenToAssign()).to.equal(2n);
   expect(await demetra.totalMinted()).to.equal(0n);
 });
+
+it("Consente al richiedente di ritirare l'NFT assegnato", async function () {
+  const { demetra, coordinator, user, essentialURI } =
+    await networkHelpers.loadFixture(deployDemetraFixture);
+
+  const requestTx = await demetra.connect(user).requestMint();
+  await requestTx.wait();
+
+  const requests = await demetra.queryFilter(
+    demetra.filters.AcceptedMintRequest(),
+  );
+  const requestId = requests[0]!.args.requestId;
+
+  const fulfillmentTx = await coordinator.fulfillRandomWordsWithOverride(
+    requestId,
+    await demetra.getAddress(),
+    [0n],
+  );
+  await fulfillmentTx.wait();
+
+  const assignmentTx = await demetra.assignVariants(1n);
+  await assignmentTx.wait();
+
+  await expect(demetra.connect(user).claimNFT(1n))
+    .to.emit(demetra, "SuccessfulMint")
+    .withArgs(1n, user.address, 1n, 0n)
+    .and.to.emit(demetra, "Transfer")
+    .withArgs(ethers.ZeroAddress, user.address, 1n);
+
+  expect(await demetra.ownerOf(1n)).to.equal(user.address);
+  expect(await demetra.balanceOf(user.address)).to.equal(1n);
+  expect(await demetra.totalMinted()).to.equal(1n);
+  expect(await demetra.totalRequested()).to.equal(1n);
+  expect(await demetra.tokenURI(1n)).to.equal(essentialURI);
+  expect(await demetra.remainingSupply(1n)).to.equal(69n);
+});
+
+it("Rifiuta il claim prima dell'assegnazione Super Gold", async function () {
+  const { demetra, coordinator, user } =
+    await networkHelpers.loadFixture(deployDemetraFixture);
+
+  const requestTx = await demetra.connect(user).requestMint();
+  await requestTx.wait();
+
+  const requests = await demetra.queryFilter(
+    demetra.filters.AcceptedMintRequest(),
+  );
+  const requestId = requests[0]!.args.requestId;
+
+  const fulfillmentTx = await coordinator.fulfillRandomWordsWithOverride(
+    requestId,
+    await demetra.getAddress(),
+    [95n],
+  );
+  await fulfillmentTx.wait();
+
+  await expect(demetra.connect(user).claimNFT(1n))
+    .to.be.revertedWithCustomError(demetra, "VariantNotAssigned")
+    .withArgs(1n);
+
+  expect(await demetra.randomnessReady(1n)).to.equal(true);
+  expect(await demetra.tokenRandomNumber(1n)).to.equal(95n);
+  expect(await demetra.tokenVariant(1n)).to.equal(0n);
+  expect(await demetra.hasTourAccess(user.address)).to.equal(false);
+  expect(await demetra.remainingSupply(3n)).to.equal(5n);
+  expect(await demetra.totalMinted()).to.equal(0n);
+  expect(await demetra.balanceOf(user.address)).to.equal(0n);
+});
