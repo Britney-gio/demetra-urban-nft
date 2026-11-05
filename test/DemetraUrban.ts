@@ -88,7 +88,6 @@ async function deployDemetraFixture() {
 }
 
 describe("DemetraUrban", function () {
-
   it("Imposta nome e simbolo della collezione correttamente", async function () {
     // Carica la preparazione iniziale o ne ripristina lo snapshot.
     const { demetra } = await networkHelpers.loadFixture(deployDemetraFixture);
@@ -123,9 +122,7 @@ it("Rifiuta una seconda richiesta dallo stesso wallet", async function () {
   const requestTx = await demetra.connect(user).requestMint();
   await requestTx.wait();
 
-  await expect(
-    demetra.connect(user).requestMint(),
-  )
+  await expect(demetra.connect(user).requestMint())
     .to.be.revertedWithCustomError(demetra, "MintAlreadyRequested")
     .withArgs(user.address);
 
@@ -134,8 +131,9 @@ it("Rifiuta una seconda richiesta dallo stesso wallet", async function () {
 });
 
 it("Salva la casualità ricevuta senza assegnare la variante", async function () {
-  const { demetra, coordinator, user } =
-    await networkHelpers.loadFixture(deployDemetraFixture);
+  const { demetra, coordinator, user } = await networkHelpers.loadFixture(
+    deployDemetraFixture,
+  );
 
   const requestTx = await demetra.connect(user).requestMint();
   await requestTx.wait();
@@ -183,9 +181,7 @@ it("Assegna Essential al primo token usando la casualità ricevuta", async funct
   );
   await fulfillmentTx.wait();
 
-  await expect(
-    demetra.connect(otherUser).assignVariants(1n),
-  )
+  await expect(demetra.connect(otherUser).assignVariants(1n))
     .to.emit(demetra, "VariantAssigned")
     .withArgs(1n, user.address, 1n);
 
@@ -216,9 +212,7 @@ it("Assegna Gold al primo token usando la casualità ricevuta", async function (
   );
   await fulfillmentTx.wait();
 
-  await expect(
-    demetra.connect(otherUser).assignVariants(1n),
-  )
+  await expect(demetra.connect(otherUser).assignVariants(1n))
     .to.emit(demetra, "VariantAssigned")
     .withArgs(1n, user.address, 2n)
     .and.to.emit(demetra, "GoldAssigned")
@@ -252,9 +246,7 @@ it("Assegna SuperGold al primo token usando la casualità ricevuta", async funct
   );
   await fulfillmentTx.wait();
 
-  await expect(
-    demetra.connect(otherUser).assignVariants(1n),
-  )
+  await expect(demetra.connect(otherUser).assignVariants(1n))
     .to.emit(demetra, "VariantAssigned")
     .withArgs(1n, user.address, 3n)
     .and.to.emit(demetra, "TourAssigned")
@@ -306,8 +298,9 @@ it("Consente al richiedente di ritirare l'NFT assegnato", async function () {
 });
 
 it("Rifiuta il claim prima dell'assegnazione Super Gold", async function () {
-  const { demetra, coordinator, user } =
-    await networkHelpers.loadFixture(deployDemetraFixture);
+  const { demetra, coordinator, user } = await networkHelpers.loadFixture(
+    deployDemetraFixture,
+  );
 
   const requestTx = await demetra.connect(user).requestMint();
   await requestTx.wait();
@@ -335,4 +328,79 @@ it("Rifiuta il claim prima dell'assegnazione Super Gold", async function () {
   expect(await demetra.remainingSupply(3n)).to.equal(5n);
   expect(await demetra.totalMinted()).to.equal(0n);
   expect(await demetra.balanceOf(user.address)).to.equal(0n);
+});
+
+it("Impedisce a un altro wallet di ritirare il Gold già assegnato", async function () {
+  const { demetra, coordinator, user, otherUser } =
+    await networkHelpers.loadFixture(deployDemetraFixture);
+
+  const requestTx = await demetra.connect(user).requestMint();
+  await requestTx.wait();
+
+  const requests = await demetra.queryFilter(
+    demetra.filters.AcceptedMintRequest(),
+  );
+  const requestId = requests[0]!.args.requestId;
+
+  const fulfillmentTx = await coordinator.fulfillRandomWordsWithOverride(
+    requestId,
+    await demetra.getAddress(),
+    [70n],
+  );
+  await fulfillmentTx.wait();
+
+  const assignmentTx = await demetra.assignVariants(1n);
+  await assignmentTx.wait();
+
+  await expect(demetra.connect(otherUser).claimNFT(1n))
+    .to.be.revertedWithCustomError(demetra, "NotTokenRequester")
+    .withArgs(1n);
+
+  expect(await demetra.tokenRequester(1n)).to.equal(user.address);
+  expect(await demetra.tokenVariant(1n)).to.equal(2n);
+  expect(await demetra.totalMinted()).to.equal(0n);
+  expect(await demetra.balanceOf(otherUser.address)).to.equal(0n);
+
+  // Il tentativo non autorizzato non impedisce il ritiro al richiedente, testiamo :
+  const claimTx = await demetra.connect(user).claimNFT(1n);
+  await claimTx.wait();
+
+  expect(await demetra.ownerOf(1n)).to.equal(user.address);
+  expect(await demetra.totalMinted()).to.equal(1n);
+  expect(await demetra.remainingSupply(2n)).to.equal(24n);
+});
+
+it("Impedisce di ritirare due volte lo stesso NFT Gold", async function () {
+  const { demetra, coordinator, user } =
+    await networkHelpers.loadFixture(deployDemetraFixture);
+
+  const requestTx = await demetra.connect(user).requestMint();
+  await requestTx.wait();
+
+  const requests = await demetra.queryFilter(
+    demetra.filters.AcceptedMintRequest(),
+  );
+  const requestId = requests[0]!.args.requestId;
+
+  const fulfillmentTx = await coordinator.fulfillRandomWordsWithOverride(
+    requestId,
+    await demetra.getAddress(),
+    [73n],
+  );
+  await fulfillmentTx.wait();
+
+  const assignmentTx = await demetra.assignVariants(1n);
+  await assignmentTx.wait();
+
+  const claimTx = await demetra.connect(user).claimNFT(1n);
+  await claimTx.wait();
+
+  await expect(demetra.connect(user).claimNFT(1n))
+    .to.be.revertedWithCustomError(demetra, "NFTAlreadyClaimed")
+    .withArgs(1n);
+
+  expect(await demetra.ownerOf(1n)).to.equal(user.address);
+  expect(await demetra.balanceOf(user.address)).to.equal(1n);
+  expect(await demetra.totalMinted()).to.equal(1n);
+  expect(await demetra.remainingSupply(2n)).to.equal(24n);
 });
