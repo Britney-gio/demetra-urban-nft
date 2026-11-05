@@ -404,3 +404,119 @@ it("Impedisce di ritirare due volte lo stesso NFT Gold", async function () {
   expect(await demetra.totalMinted()).to.equal(1n);
   expect(await demetra.remainingSupply(2n)).to.equal(24n);
 });
+
+it("Assegna tre varianti in ordine anche con risposte VRF fuori ordine", async function () {
+  const { demetra, coordinator, owner, user, otherUser } =
+    await networkHelpers.loadFixture(deployDemetraFixture);
+
+  const requestTx1 = await demetra.connect(owner).requestMint();
+  await requestTx1.wait();
+
+  const requestTx2 = await demetra.connect(user).requestMint();
+  await requestTx2.wait();
+
+  const requestTx3 = await demetra.connect(otherUser).requestMint();
+  await requestTx3.wait();
+
+  const requests = await demetra.queryFilter(
+    demetra.filters.AcceptedMintRequest(),
+  );
+
+  const requestId1 = requests[0]!.args.requestId;
+  const requestId2 = requests[1]!.args.requestId;
+  const requestId3 = requests[2]!.args.requestId;
+  const demetraAddress = await demetra.getAddress();
+
+  // Arriva prima la risposta del token 3.
+  const responseTx3 = await coordinator.fulfillRandomWordsWithOverride(
+    requestId3,
+    demetraAddress,
+    [94n],
+  );
+  await responseTx3.wait();
+
+  const assignmentAttempt1 = await demetra.assignVariants(3n);
+  await assignmentAttempt1.wait();
+
+  expect(await demetra.randomnessReady(3n)).to.equal(true);
+  expect(await demetra.tokenVariant(3n)).to.equal(0n);
+  expect(await demetra.nextTokenToAssign()).to.equal(1n);
+
+  // Anche con la risposta del token 2, manca ancora quella del token 1.
+  const responseTx2 = await coordinator.fulfillRandomWordsWithOverride(
+    requestId2,
+    demetraAddress,
+    [69n],
+  );
+  await responseTx2.wait();
+
+  const assignmentAttempt2 = await demetra.assignVariants(3n);
+  await assignmentAttempt2.wait();
+
+  expect(await demetra.randomnessReady(2n)).to.equal(true);
+  expect(await demetra.randomnessReady(1n)).to.equal(false);
+  expect(await demetra.tokenVariant(1n)).to.equal(0n);
+  expect(await demetra.tokenVariant(2n)).to.equal(0n);
+  expect(await demetra.tokenVariant(3n)).to.equal(0n);
+  expect(await demetra.nextTokenToAssign()).to.equal(1n);
+
+  expect(await demetra.remainingSupply(1n)).to.equal(70n);
+  expect(await demetra.remainingSupply(2n)).to.equal(25n);
+  expect(await demetra.remainingSupply(3n)).to.equal(5n);
+  expect(await demetra.hasTourAccess(otherUser.address)).to.equal(false);
+
+  // La risposta del token 1 permette di elaborare tutti e tre in ordine.
+  const responseTx1 = await coordinator.fulfillRandomWordsWithOverride(
+    requestId1,
+    demetraAddress,
+    [0n],
+  );
+  await responseTx1.wait();
+
+  const assignmentTx = await demetra.assignVariants(3n);
+  const receipt = await assignmentTx.wait();
+
+  const assignments = await demetra.queryFilter(
+    demetra.filters.VariantAssigned(),
+    receipt!.blockNumber,
+    receipt!.blockNumber,
+  );
+
+  expect(assignments.length).to.equal(3);
+
+  expect(
+    assignments.map((event) => [
+      event.args.tokenId,
+      event.args.sender,
+      event.args.variant,
+    ]),
+  ).to.deep.equal([
+    [1n, owner.address, 1n],
+    [2n, user.address, 2n],
+    [3n, otherUser.address, 3n],
+  ]);
+
+  expect(await demetra.tokenVariant(1n)).to.equal(1n);
+  expect(await demetra.tokenVariant(2n)).to.equal(2n);
+  expect(await demetra.tokenVariant(3n)).to.equal(3n);
+
+  expect(await demetra.tokenRandomNumber(1n)).to.equal(0n);
+  expect(await demetra.tokenRandomNumber(2n)).to.equal(69n);
+  expect(await demetra.tokenRandomNumber(3n)).to.equal(94n);
+
+  expect(await demetra.requestFulfilled(requestId1)).to.equal(true);
+  expect(await demetra.requestFulfilled(requestId2)).to.equal(true);
+  expect(await demetra.requestFulfilled(requestId3)).to.equal(true);
+
+  expect(await demetra.remainingSupply(1n)).to.equal(69n);
+  expect(await demetra.remainingSupply(2n)).to.equal(24n);
+  expect(await demetra.remainingSupply(3n)).to.equal(4n);
+
+  expect(await demetra.hasTourAccess(owner.address)).to.equal(false);
+  expect(await demetra.hasTourAccess(user.address)).to.equal(false);
+  expect(await demetra.hasTourAccess(otherUser.address)).to.equal(true);
+
+  expect(await demetra.nextTokenToAssign()).to.equal(4n);
+  expect(await demetra.totalRequested()).to.equal(3n);
+  expect(await demetra.totalMinted()).to.equal(0n);
+});
