@@ -5,6 +5,7 @@
 Demetra Urban è una collezione NFT pensata come regalo promozionale
 del brand di calzature sostenibili Demetra, per accompagnare il lancio
 della nuova collezione Urban.
+
 Il simbolo DURB unisce il nome Demetra al richiamo alla linea Urban.
 Il progetto sperimenta un sistema di fidelizzazione nel quale ogni NFT
 offre un premio diverso in base alla variante assegnata casualmente.
@@ -13,14 +14,15 @@ offre un premio diverso in base alla variante assegnata casualmente.
 
 La collezione prevede un massimo di 100 NFT:
 
-| Variante         | Rarità     | Quantità massima |
-| ---------------- | ---------- | ---------------: |
-| Urban Essential  | Comune     |               70 |
-| Urban Gold       | Rara       |               25 |
-| Urban Super Gold | Molto rara |                5 |
+| Variante | Rarità | Quantità massima |
+| --- | --- | ---: |
+| Urban Essential | Comune | 70 |
+| Urban Gold | Rara | 25 |
+| Urban Super Gold | Molto rara | 5 |
 
 Ogni wallet potrà effettuare una sola richiesta di mint accettata.
 Trasferire il proprio NFT non consentirà di richiederne un altro.
+
 Il mint sarà gratuito, escluso il gas delle transazioni di richiesta e ritiro.
 L’assegnazione delle varianti richiede una transazione aggiuntiva,
 pagata da chi la esegue. I costi del servizio Chainlink VRF sono finanziati
@@ -50,8 +52,9 @@ Il listener implementato segnala queste assegnazioni a Demetra nel terminale.
 
 Hardhat viene utilizzato per compilare i contratti Solidity,
 eseguire i test e gestire il deploy sulla rete di test Sepolia.
-Test e script utilizzano TypeScript; per i test sono previsti
-Mocha e Chai, mentre l’interazione con la blockchain utilizza Ethers.js.
+
+I test e gli script sono scritti in TypeScript. Mocha esegue i casi di test,
+Chai verifica i risultati ed Ethers.js permette di interagire con il contratto.
 
 ### OpenZeppelin Contracts
 
@@ -75,15 +78,15 @@ La sottoscrizione sarà finanziata da Demetra con ETH di Sepolia.
 
 La richiesta utilizza:
 
-| Parametro              | Funzione                                                           |
-| ---------------------- | ------------------------------------------------------------------ |
-| Coordinator            | Contratto Chainlink che riceve la richiesta e consegna la risposta |
-| `subscriptionId`       | Identificativo del conto che paga il servizio                      |
-| `keyHash`              | Identificativo della configurazione VRF e della gas lane           |
-| `requestConfirmations` | Conferme richieste prima della risposta                            |
-| `callbackGasLimit`     | Budget di gas per eseguire la callback                             |
-| `NUM_WORDS`            | Quantità di numeri casuali richiesti, fissata a `1`                |
-| `NATIVE_PAYMENT`       | Pagamento in ETH dalla subscription, impostato a `true`            |
+| Parametro | Funzione |
+| --- | --- |
+| Coordinator | Contratto Chainlink che riceve la richiesta e consegna la risposta |
+| `subscriptionId` | Identificativo del conto che paga il servizio |
+| `keyHash` | Identificativo della configurazione VRF e della gas lane |
+| `requestConfirmations` | Conferme richieste prima della risposta |
+| `callbackGasLimit` | Budget di gas per eseguire la callback |
+| `NUM_WORDS` | Quantità di numeri casuali richiesti, fissata a `1` |
+| `NATIVE_PAYMENT` | Pagamento in ETH dalla subscription, impostato a `true` |
 
 Ogni `requestId` viene collegato al wallet e al token prenotato:
 questo consente di gestire le risposte anche se arrivano
@@ -252,12 +255,32 @@ gli eventi persi durante arresti o disconnessioni.
 La disponibilità di immagini e metadati richiede il mantenimento
 del pinning su IPFS.
 
-### Verifiche ancora da completare
+## Test locali
 
-Compilazione e controllo TypeScript sono passati.
-È stata svolta una prima revisione manuale della sicurezza,
-ma le protezioni devono ancora essere verificate con i test Hardhat.
-La revisione manuale non costituisce un audit indipendente.
+La suite di `DemetraUrban` comprende 26 test, tutti superati.
+I test usano il mock di Chainlink VRF con una sottoscrizione finanziata
+in ETH simulati. Il mock permette di scegliere i numeri restituiti
+e di far arrivare le risposte in un ordine diverso da quello delle richieste.
+
+La suite verifica il flusso dalla richiesta al ritiro, il limite di una
+richiesta per wallet e la distribuzione delle 100 assegnazioni:
+70 Essential, 25 Gold e 5 Super Gold. Copre inoltre trasferimenti,
+metadati, risposte VRF non autorizzate o duplicate e tentativi di doppio ritiro.
+
+Per ripetere i controlli, eseguire dalla cartella del progetto:
+
+```powershell
+npm run compile
+npm run typecheck
+npx hardhat test mocha test/DemetraUrban.ts
+```
+
+Risultato atteso: `26 passing`.
+
+I test verificano che il contratto emetta gli eventi attesi.
+La ricezione degli eventi da parte dello script dei listener resta
+da provare su un nodo Hardhat locale. La revisione manuale della sicurezza
+non costituisce un audit indipendente.
 
 ## Implementazioni future
 
