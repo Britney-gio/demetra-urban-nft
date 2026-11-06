@@ -371,8 +371,9 @@ it("Impedisce a un altro wallet di ritirare il Gold già assegnato", async funct
 });
 
 it("Impedisce di ritirare due volte lo stesso NFT Gold", async function () {
-  const { demetra, coordinator, user } =
-    await networkHelpers.loadFixture(deployDemetraFixture);
+  const { demetra, coordinator, user } = await networkHelpers.loadFixture(
+    deployDemetraFixture,
+  );
 
   const requestTx = await demetra.connect(user).requestMint();
   await requestTx.wait();
@@ -431,8 +432,10 @@ it("Gestisce risposte VRF fuori ordine e assegnazioni in più chiamate", async f
   );
   await responseTx3.wait();
 
-  await expect(demetra.assignVariants(3n))
-    .to.not.emit(demetra, "VariantAssigned");
+  await expect(demetra.assignVariants(3n)).to.not.emit(
+    demetra,
+    "VariantAssigned",
+  );
 
   expect(await demetra.randomnessReady(3n)).to.equal(true);
   expect(await demetra.nextTokenToAssign()).to.equal(1n);
@@ -444,8 +447,10 @@ it("Gestisce risposte VRF fuori ordine e assegnazioni in più chiamate", async f
   );
   await responseTx2.wait();
 
-  await expect(demetra.assignVariants(3n))
-    .to.not.emit(demetra, "VariantAssigned");
+  await expect(demetra.assignVariants(3n)).to.not.emit(
+    demetra,
+    "VariantAssigned",
+  );
 
   expect(await demetra.randomnessReady(1n)).to.equal(false);
   expect(await demetra.randomnessReady(2n)).to.equal(true);
@@ -514,8 +519,10 @@ it("Gestisce risposte VRF fuori ordine e assegnazioni in più chiamate", async f
   expect(await demetra.requestFulfilled(requestId3)).to.equal(true);
 
   // Una chiamata aggiuntiva non riassegna i token già elaborati.
-  await expect(demetra.assignVariants(3n))
-    .to.not.emit(demetra, "VariantAssigned");
+  await expect(demetra.assignVariants(3n)).to.not.emit(
+    demetra,
+    "VariantAssigned",
+  );
 
   expect(await demetra.nextTokenToAssign()).to.equal(4n);
   expect(await demetra.tokenVariant(1n)).to.equal(1n);
@@ -529,15 +536,17 @@ it("Gestisce risposte VRF fuori ordine e assegnazioni in più chiamate", async f
 });
 
 it("Rifiuta quantità di assegnazione fuori dai limiti", async function () {
-  const { demetra } = await networkHelpers.loadFixture(
-    deployDemetraFixture,
+  const { demetra } = await networkHelpers.loadFixture(deployDemetraFixture);
+
+  await expect(demetra.assignVariants(0n)).to.be.revertedWithCustomError(
+    demetra,
+    "InvalidBatchSize",
   );
 
-  await expect(demetra.assignVariants(0n))
-    .to.be.revertedWithCustomError(demetra, "InvalidBatchSize");
-
-  await expect(demetra.assignVariants(101n))
-    .to.be.revertedWithCustomError(demetra, "InvalidBatchSize");
+  await expect(demetra.assignVariants(101n)).to.be.revertedWithCustomError(
+    demetra,
+    "InvalidBatchSize",
+  );
 
   expect(await demetra.nextTokenToAssign()).to.equal(1n);
   expect(await demetra.totalRequested()).to.equal(0n);
@@ -545,4 +554,94 @@ it("Rifiuta quantità di assegnazione fuori dai limiti", async function () {
   expect(await demetra.remainingSupply(1n)).to.equal(70n);
   expect(await demetra.remainingSupply(2n)).to.equal(25n);
   expect(await demetra.remainingSupply(3n)).to.equal(5n);
+});
+
+it("Limita le richieste a 100 e assegna esattamente 70 Essential, 25 Gold e 5 Super Gold", async function () {
+  this.timeout(120_000);
+
+  const { demetra, coordinator } = await networkHelpers.loadFixture(
+    deployDemetraFixture,
+  );
+
+  const clients = [];
+
+  for (let i = 0; i < 101; i++) {
+    const client = ethers.Wallet.createRandom().connect(ethers.provider);
+
+    await networkHelpers.setBalance(client.address, ethers.parseEther("1"));
+
+    clients.push(client);
+  }
+
+  for (const client of clients.slice(0, 100)) {
+    const requestTx = await demetra.connect(client).requestMint();
+    await requestTx.wait();
+  }
+
+  expect(await demetra.totalRequested()).to.equal(100n);
+
+  const extraClient = clients[100]!;
+
+  await expect(
+    demetra.connect(extraClient).requestMint(),
+  ).to.be.revertedWithCustomError(demetra, "MaxSupplyReached");
+
+  expect(await demetra.hasRequestedMint(extraClient.address)).to.equal(false);
+  expect(await demetra.totalRequested()).to.equal(100n);
+
+  const requests = await demetra.queryFilter(
+    demetra.filters.AcceptedMintRequest(),
+  );
+
+  expect(requests.length).to.equal(100);
+
+  const demetraAddress = await demetra.getAddress();
+
+  for (const request of requests) {
+    const responseTx = await coordinator.fulfillRandomWordsWithOverride(
+      request.args.requestId,
+      demetraAddress,
+      [0n],
+    );
+    await responseTx.wait();
+  }
+
+  // Elabora più token nella stessa transazione, in gruppi da 10.
+  for (let i = 0; i < 10; i++) {
+    const assignmentTx = await demetra.assignVariants(10n);
+    await assignmentTx.wait();
+  }
+
+  const counts = [0, 0, 0, 0];
+
+  for (let i = 1; i <= 100; i++) {
+    const tokenId = BigInt(i);
+    const variant = Number(await demetra.tokenVariant(tokenId));
+
+    expect(variant).to.be.oneOf([1, 2, 3]);
+    counts[variant] = counts[variant]! + 1;
+
+    const expectedVariant = i <= 70 ? 1n : i <= 95 ? 2n : 3n;
+
+    expect(await demetra.tokenVariant(tokenId)).to.equal(expectedVariant);
+    expect(await demetra.tokenRequester(tokenId)).to.equal(
+      clients[i - 1]!.address,
+    );
+    expect(await demetra.hasTourAccess(clients[i - 1]!.address)).to.equal(
+      i > 95,
+    );
+  }
+
+  expect(counts).to.deep.equal([0, 70, 25, 5]);
+  expect(await demetra.remainingSupply(1n)).to.equal(0n);
+  expect(await demetra.remainingSupply(2n)).to.equal(0n);
+  expect(await demetra.remainingSupply(3n)).to.equal(0n);
+  expect(await demetra.nextTokenToAssign()).to.equal(101n);
+  expect(await demetra.totalRequested()).to.equal(100n);
+  expect(await demetra.totalMinted()).to.equal(0n);
+
+  await expect(demetra.assignVariants(10n)).to.not.emit(
+    demetra,
+    "VariantAssigned",
+  );
 });
