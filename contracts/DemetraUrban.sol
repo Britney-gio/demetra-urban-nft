@@ -12,19 +12,19 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     uint256 public constant SUPERGOLD_SUPPLY = 5;
 
     uint32 public constant NUM_WORDS = 1; // Quantità di numeri casuali richiesti a Chainlink VRF
-    bool public constant NATIVE_PAYMENT = true; // usiamo la valuta nativa della chain per pagare il VRF
+    bool public constant NATIVE_PAYMENT = true; // Pagamento VRF con la valuta nativa
 
     uint256 public totalRequested; // Richieste di mint totali, sia completate sia in attesa
     uint256 public totalMinted; // Totale degli NFT creati
-    uint public nextTokenToAssign = 1;
+    uint256 public nextTokenToAssign = 1;
 
     uint256 public subscriptionId; // ID della sottoscrizione VRF
     bytes32 public keyHash; // Identifica gas lane VRF
     uint16 public requestConfirmations; // conferme richieste prima della risposta VRF
-    uint32 public callbackGasLimit; // limite di gas per la fx callback fullfillRandomWords
-    address public immutable initialVrfCoordinator; // indirizzo autorizzato a consegnare casualità
+    uint32 public callbackGasLimit; // Gas disponibile per la callback VRF
+    address public immutable initialVrfCoordinator;
 
-    // Variabili che conterranno indirizzi IPFS dei JSON delle Varianti
+    // URI IPFS dei metadati, uno per variante.
     string public essentialURI;
     string public goldURI;
     string public superGoldURI;
@@ -36,11 +36,9 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
         SuperGold
     }
 
-    
-    
-    mapping(address => bool) public hasRequestedMint;   
+    mapping(address => bool) public hasRequestedMint;
     mapping(uint256 => Variant) public tokenVariant;
-    mapping(uint256 => uint256) public tokenRandomNumber; 
+    mapping(uint256 => uint256) public tokenRandomNumber;
     mapping(uint256 => bool) public randomnessReady;
     mapping(address => bool) public hasTourAccess;
     mapping(uint256 => address) public requestToSender; // Wallet associato alla richiesta mint e VRF
@@ -49,21 +47,15 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     mapping(uint256 => bool) public requestFulfilled;
     mapping(uint256 => address) public tokenRequester;
 
-    event GoldAssigned(
-    address indexed sender,
-    uint256 indexed tokenId
-    ); 
+    event GoldAssigned(address indexed sender, uint256 indexed tokenId);
 
-    event TourAssigned(
-        address indexed sender, 
-        uint256 indexed tokenId
-    ); 
+    event TourAssigned(address indexed sender, uint256 indexed tokenId);
 
     event AcceptedMintRequest(
         uint256 indexed requestId,
         address indexed sender,
         uint256 indexed tokenId
-    ); // evento che segnala accettazione della richiesta di mint (NFT non ancora creato)
+    );
 
     event RandomnessReceived(
         uint256 indexed requestId,
@@ -82,10 +74,10 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
         address indexed sender,
         Variant indexed variant,
         uint256 randomNumber
-    ); // avento che segnala mint completato con successo (NFT creato)
+    );
 
     error MintAlreadyRequested(address wallet);
-    error MaxSupplyReached();  
+    error MaxSupplyReached();
     error NotTokenRequester(uint256 tokenId);
     error VariantNotAssigned(uint256 tokenId);
     error NFTAlreadyClaimed(uint256 tokenId);
@@ -93,19 +85,17 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     error EmptyMetadataURI();
     error CoordinatorChanged();
 
-
-
     constructor(
-        address vrfCoordinator, 
-        uint256 vrfSubscriptionId, 
-        bytes32 vrfKeyHash, 
-        uint16 vrfRequestConfirmations, 
-        uint32 vrfCallbackGasLimit, 
-        string memory essentialMetadataURI, 
-        string memory goldMetadataURI, 
+        address vrfCoordinator,
+        uint256 vrfSubscriptionId,
+        bytes32 vrfKeyHash,
+        uint16 vrfRequestConfirmations,
+        uint32 vrfCallbackGasLimit,
+        string memory essentialMetadataURI,
+        string memory goldMetadataURI,
         string memory superGoldMetadataURI
-    ) 
-        VRFConsumerBaseV2Plus(vrfCoordinator) 
+    )
+        VRFConsumerBaseV2Plus(vrfCoordinator)
         ERC721("Demetra Urban", "DURB")
     {
         if (
@@ -113,10 +103,10 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
             bytes(goldMetadataURI).length == 0 ||
             bytes(superGoldMetadataURI).length == 0
         ) {
-        revert EmptyMetadataURI();
+            revert EmptyMetadataURI();
         }
 
-        initialVrfCoordinator = vrfCoordinator;     
+        initialVrfCoordinator = vrfCoordinator;
         subscriptionId = vrfSubscriptionId;
         keyHash = vrfKeyHash;
         requestConfirmations = vrfRequestConfirmations;
@@ -129,9 +119,8 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
         essentialURI = essentialMetadataURI;
         goldURI = goldMetadataURI;
         superGoldURI = superGoldMetadataURI;
-        } 
-    
-    
+    }
+
     function requestMint() external {
         if (address(s_vrfCoordinator) != initialVrfCoordinator) {
             revert CoordinatorChanged();
@@ -147,24 +136,11 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
 
         uint256 tokenId = totalRequested; // tokenId prenotato prima di assegnazione casuale e del claim
 
-        VRFV2PlusClient.RandomWordsRequest memory request; // struct fornita dalla libreria per richiesta vrf in cui inseriamo i parametri della richiesta:
+        uint256 requestId = _requestRandomness();
 
-        request.subId = subscriptionId;
-        request.keyHash = keyHash;
-        request.requestConfirmations = requestConfirmations;
-        request.callbackGasLimit = callbackGasLimit;
-        request.numWords = NUM_WORDS;
-        request.extraArgs = VRFV2PlusClient._argsToBytes(
-            VRFV2PlusClient.ExtraArgsV1({
-                nativePayment: NATIVE_PAYMENT
-            }) // non ho campo diretto per nativePayment, quindi lo passo come extraArgs
-        );
-        
-        uint256 requestId = s_vrfCoordinator.requestRandomWords(request); // invio della richiesta a Coordinator e avvia sua funzione requestRandomWords() che riceve nostra struct e restituisce requestId e lo conserva
-
-        requestToSender[requestId] = msg.sender; // memorizzo il wallet che ha richiesto il mint
-        requestToTokenId[requestId] = tokenId; // memorizzo il tokenId associato alla richiesta
-        tokenRequester[tokenId] = msg.sender; // memorizzo wallet vhe ha richiesto mint
+        requestToSender[requestId] = msg.sender;
+        requestToTokenId[requestId] = tokenId;
+        tokenRequester[tokenId] = msg.sender;
 
         emit AcceptedMintRequest(requestId, msg.sender, tokenId);
     }
@@ -172,34 +148,27 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
     function fulfillRandomWords(
         uint256 requestId,
         uint256[] calldata randomNumbers
-        ) internal override {
-            // Rifiuto risposte da Coordinator sostitutivi
-            if (msg.sender != initialVrfCoordinator) {
-                revert OnlyCoordinatorCanFulfill(
-                    msg.sender,
-                    initialVrfCoordinator
-                );
-            }
-        
-            if (requestToSender[requestId] == address(0)) {
+    ) internal override {
+        // Anche se il Coordinator configurato cambia, accettiamo solo quello iniziale.
+        if (msg.sender != initialVrfCoordinator) {
+            revert OnlyCoordinatorCanFulfill(msg.sender, initialVrfCoordinator);
+        }
+
+        if (
+            requestToSender[requestId] == address(0) ||
+            requestFulfilled[requestId] ||
+            randomNumbers.length == 0
+        ) {
             return;
-            }
+        }
 
-            if (requestFulfilled[requestId]) {
-            return;
-            }
+        uint256 tokenId = requestToTokenId[requestId];
+        uint256 randomNumber = randomNumbers[0];
 
-            if (randomNumbers.length == 0) {
-                return;
-            }
-
-            uint256 tokenId = requestToTokenId[requestId];
-            uint256 randomNumber = randomNumbers[0]; 
-
-            // Salvo la risposta senza assegnare ancora la variante.
-            requestFulfilled[requestId] = true;
-            tokenRandomNumber[tokenId] = randomNumber;
-            randomnessReady[tokenId] = true;
+        // Salva la risposta senza assegnare ancora la variante.
+        requestFulfilled[requestId] = true;
+        tokenRandomNumber[tokenId] = randomNumber;
+        randomnessReady[tokenId] = true;
 
         emit RandomnessReceived(requestId, tokenId, randomNumber);
     }
@@ -223,28 +192,7 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
                 break;
             }
 
-            uint256 totalRemaining =
-                remainingSupply[Variant.Essential] +
-                remainingSupply[Variant.Gold] +
-                remainingSupply[Variant.SuperGold];
-
-            uint256 randomIndex =
-                tokenRandomNumber[tokenId] % totalRemaining;
-
-            Variant assignedVariant;
-
-            if (randomIndex < remainingSupply[Variant.Essential]) {
-                assignedVariant = Variant.Essential;
-            } else if (
-                randomIndex <
-                remainingSupply[Variant.Essential] +
-                    remainingSupply[Variant.Gold]
-            ) {
-                assignedVariant = Variant.Gold;
-            } else {
-                assignedVariant = Variant.SuperGold;
-            }
-
+            Variant assignedVariant = _selectVariant(tokenRandomNumber[tokenId]);
             address sender = tokenRequester[tokenId];
 
             remainingSupply[assignedVariant]--;
@@ -294,9 +242,7 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
         );
     }
 
-    function tokenURI(
-        uint256 tokenId
-    ) public view override returns (string memory) {
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _requireOwned(tokenId);
 
         Variant variant = tokenVariant[tokenId];
@@ -310,5 +256,36 @@ contract DemetraUrban is ERC721, VRFConsumerBaseV2Plus {
         } else {
             revert VariantNotAssigned(tokenId);
         }
+    }
+
+    function _requestRandomness() private returns (uint256) {
+        VRFV2PlusClient.RandomWordsRequest memory request;
+        request.subId = subscriptionId;
+        request.keyHash = keyHash;
+        request.requestConfirmations = requestConfirmations;
+        request.callbackGasLimit = callbackGasLimit;
+        request.numWords = NUM_WORDS;
+        request.extraArgs = VRFV2PlusClient._argsToBytes(
+            VRFV2PlusClient.ExtraArgsV1({nativePayment: NATIVE_PAYMENT})
+        );
+
+        return s_vrfCoordinator.requestRandomWords(request);
+    }
+
+    function _selectVariant(uint256 randomNumber) private view returns (Variant) {
+        uint256 essentialRemaining = remainingSupply[Variant.Essential];
+        uint256 essentialPlusGold  = essentialRemaining + remainingSupply[Variant.Gold];
+        uint256 totalRemaining = essentialPlusGold + remainingSupply[Variant.SuperGold];
+
+        // Gli intervalli si riducono man mano che vengono assegnate le varianti.
+        uint256 randomIndex = randomNumber % totalRemaining;
+
+        if (randomIndex < essentialRemaining) {
+            return Variant.Essential;
+        }
+        if (randomIndex < essentialPlusGold) {
+            return Variant.Gold;
+        }
+        return Variant.SuperGold;
     }
 }
