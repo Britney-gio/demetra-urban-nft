@@ -19,7 +19,7 @@ const demetraContract = await ethers.getContractAt(
 const demetra = demetraContract.connect(ethers.provider);
 
 // Segnalo l'assegnazione Gold; lo sconto segue il possesso dopo il claim.
-await demetra.on(demetra.filters.GoldAssigned(), (sender, tokenId) => {
+await demetra.on(demetra.filters.GoldAssigned, (sender, tokenId) => {
   console.log(
     "Urban Gold assegnato: sconto disponibile dopo il ritiro dell'NFT",
   );
@@ -28,14 +28,14 @@ await demetra.on(demetra.filters.GoldAssigned(), (sender, tokenId) => {
 });
 
 // Segnalo vincita tour, che resta al wallet premiato anche dopo il trasferimento.
-await demetra.on(demetra.filters.TourAssigned(), (sender, tokenId) => {
+await demetra.on(demetra.filters.TourAssigned, (sender, tokenId) => {
   console.log("SuperGold assegnato e Tour vinto");
   console.log("Tour vinto dal Wallet:", sender);
   console.log("Token ID:", tokenId.toString());
 });
 
 // Segnala i trasferimenti di tutte le varianti, escludendo i mint.
-await demetra.on(demetra.filters.Transfer(), async (from, to, tokenId) => {
+await demetra.on(demetra.filters.Transfer, async (from, to, tokenId) => {
   if (from === ethers.ZeroAddress) {
     return;
   }
@@ -59,7 +59,7 @@ await demetra.on(demetra.filters.Transfer(), async (from, to, tokenId) => {
 
 // Segnalo la richiesta accettata
 await demetra.on(
-  demetra.filters.AcceptedMintRequest(),
+  demetra.filters.AcceptedMintRequest,
   (requestId, sender, tokenId) => {
     console.log("Richiesta di mint accettata: in attesa di Chainlink VRF");
     console.log("ID Richiesta:", requestId.toString());
@@ -70,7 +70,7 @@ await demetra.on(
 
 // Segnalo la ricezione della casualità, prima dell'assegnazione.
 await demetra.on(
-  demetra.filters.RandomnessReceived(),
+  demetra.filters.RandomnessReceived,
   (requestId, tokenId, randomNumber) => {
     console.log("Casualità VRF ricevuta: in attesa di assegnazione");
     console.log("ID Richiesta:", requestId.toString());
@@ -81,7 +81,7 @@ await demetra.on(
 
 // Segnalo la variante assegnata: il richiedente può procedere al claim.
 await demetra.on(
-  demetra.filters.VariantAssigned(),
+  demetra.filters.VariantAssigned,
   (tokenId, sender, variant) => {
     console.log("Variante DURB assegnata: NFT disponibile per il ritiro");
     console.log("Token ID:", tokenId.toString());
@@ -92,7 +92,7 @@ await demetra.on(
 
 // Segnalo la creazione dell'NFT
 await demetra.on(
-  demetra.filters.SuccessfulMint(),
+  demetra.filters.SuccessfulMint,
   (tokenId, sender, variant, randomNumber) => {
     console.log("NFT DURB ritirato");
     console.log("Token ID:", tokenId.toString());
