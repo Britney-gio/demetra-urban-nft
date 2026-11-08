@@ -34,7 +34,7 @@ await demetra.on(demetra.filters.TourAssigned(), (sender, tokenId) => {
   console.log("Token ID:", tokenId.toString());
 });
 
-// Seguo i cambi di possesso dei soli Gold usando l'evento ereditato da ERC-721.
+// Segnala i trasferimenti di tutte le varianti, escludendo i mint.
 await demetra.on(demetra.filters.Transfer(), async (from, to, tokenId) => {
   if (from === ethers.ZeroAddress) {
     return;
@@ -43,13 +43,11 @@ await demetra.on(demetra.filters.Transfer(), async (from, to, tokenId) => {
   try {
     const variant = await demetra.tokenVariant(tokenId);
 
-    // Nell'enum Solidity, Gold corrisponde a 2;
-    if (variant === 2n) {
-      console.log("Urban Gold trasferito");
-      console.log("Da:", from);
-      console.log("A:", to);
-      console.log("Token ID:", tokenId.toString());
-    }
+    console.log("NFT Demetra Urban trasferito");
+    console.log("Da:", from);
+    console.log("A:", to);
+    console.log("Token ID:", tokenId.toString());
+    console.log("Variante DURB:", variant.toString());
   } catch (error) {
     console.error(
       "Errore nella verifica della variante del token:",

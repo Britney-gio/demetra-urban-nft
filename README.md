@@ -14,11 +14,11 @@ offre un premio diverso in base alla variante assegnata casualmente.
 
 La collezione prevede un massimo di 100 NFT:
 
-| Variante | Rarità | Quantità massima |
-| --- | --- | ---: |
-| Urban Essential | Comune | 70 |
-| Urban Gold | Rara | 25 |
-| Urban Super Gold | Molto rara | 5 |
+| Variante         | Rarità     | Quantità massima |
+| ---------------- | ---------- | ---------------: |
+| Urban Essential  | Comune     |               70 |
+| Urban Gold       | Rara       |               25 |
+| Urban Super Gold | Molto rara |                5 |
 
 Ogni wallet potrà effettuare una sola richiesta di mint accettata.
 Trasferire il proprio NFT non consentirà di richiederne un altro.
@@ -78,15 +78,15 @@ La sottoscrizione sarà finanziata da Demetra con ETH di Sepolia.
 
 La richiesta utilizza:
 
-| Parametro | Funzione |
-| --- | --- |
-| Coordinator | Contratto Chainlink che riceve la richiesta e consegna la risposta |
-| `subscriptionId` | Identificativo del conto che paga il servizio |
-| `keyHash` | Identificativo della configurazione VRF e della gas lane |
-| `requestConfirmations` | Conferme richieste prima della risposta |
-| `callbackGasLimit` | Budget di gas per eseguire la callback |
-| `NUM_WORDS` | Quantità di numeri casuali richiesti, fissata a `1` |
-| `NATIVE_PAYMENT` | Pagamento in ETH dalla subscription, impostato a `true` |
+| Parametro              | Funzione                                                           |
+| ---------------------- | ------------------------------------------------------------------ |
+| Coordinator            | Contratto Chainlink che riceve la richiesta e consegna la risposta |
+| `subscriptionId`       | Identificativo del conto che paga il servizio                      |
+| `keyHash`              | Identificativo della configurazione VRF e della gas lane           |
+| `requestConfirmations` | Conferme richieste prima della risposta                            |
+| `callbackGasLimit`     | Budget di gas per eseguire la callback                             |
+| `NUM_WORDS`            | Quantità di numeri casuali richiesti, fissata a `1`                |
+| `NATIVE_PAYMENT`       | Pagamento in ETH dalla subscription, impostato a `true`            |
 
 Ogni `requestId` viene collegato al wallet e al token prenotato:
 questo consente di gestire le risposte anche se arrivano
@@ -205,7 +205,8 @@ L’indirizzo viene letto dalla variabile d’ambiente
 
 Sono monitorati `AcceptedMintRequest`, `GoldAssigned`, `TourAssigned`,
 `SuccessfulMint` e `Transfer`. Per `Transfer` vengono esclusi i mint
-e mostrati soltanto i cambi di possessore degli NFT Gold.
+e mostrati i cambi di possessore degli NFT di tutte le varianti.
+Il trasferimento di un Super Gold non trasferisce il diritto al tour.
 
 `GoldAssigned` segnala il richiedente che ha ottenuto la variante:
 per verificare lo sconto occorre comunque controllare il possessore attuale.
@@ -247,13 +248,6 @@ Non sono previsti salti o nuove estrazioni.
 
 Occorre quindi finanziare la subscription e configurare correttamente
 i parametri VRF, in particolare il gas della callback.
-
-### Monitoraggio e disponibilità dei contenuti
-
-Il listener funziona mentre lo script è attivo e non recupera
-gli eventi persi durante arresti o disconnessioni.
-La disponibilità di immagini e metadati richiede il mantenimento
-del pinning su IPFS.
 
 ## Test locali
 
