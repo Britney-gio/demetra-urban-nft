@@ -272,9 +272,94 @@ npx hardhat test mocha test/DemetraUrban.ts
 Risultato atteso: `26 passing`.
 
 I test verificano che il contratto emetta gli eventi attesi.
-La ricezione degli eventi da parte dello script dei listener resta
-da provare su un nodo Hardhat locale. La revisione manuale della sicurezza
-non costituisce un audit indipendente.
+La ricezione di tutti e sette i tipi di evento monitorati è stata
+verificata anche attraverso il listener su un nodo Hardhat locale,
+inclusi i trasferimenti di tutte e tre le varianti.
+
+La revisione manuale della sicurezza non costituisce un audit indipendente.
+
+## Demo locale e verifica dei listener
+
+La demo permette di osservare l’intero flusso attraverso tre NFT:
+Essential, Gold e Super Gold. Utilizza una blockchain Hardhat locale
+e il mock di Chainlink VRF, senza spendere fondi reali.
+
+Tutti i comandi vanno eseguiti dalla cartella del progetto.
+
+### 1. Avviare il nodo locale
+
+Nel primo terminale:
+
+```powershell
+npx hardhat node --network hardhatMainnet
+```
+
+Lasciare il terminale aperto durante tutta la prova.
+
+### 2. Distribuire i contratti
+
+Nel terzo terminale:
+
+```powershell
+npx hardhat run scripts/deploy-local.ts --network localhost
+```
+
+Lo script distribuisce il mock VRF, crea e finanzia una subscription
+con ETH simulati, distribuisce `DemetraUrban` e lo registra come consumer.
+
+Copiare gli indirizzi stampati nelle variabili `demetraAddress`
+e `coordinatorAddress` di `scripts/demo-local.ts`.
+
+### 3. Avviare il listener
+
+Nel secondo terminale, sostituire `INDIRIZZO_DEMETRA` con l’indirizzo
+del contratto appena distribuito:
+
+```powershell
+$env:DEMETRA_CONTRACT_ADDRESS = "INDIRIZZO_DEMETRA"
+npx hardhat run scripts/listen-events.ts --network localhost
+```
+
+Il listener resta attivo in attesa degli eventi.
+La variabile d’ambiente vale per il terminale in cui viene impostata.
+
+### 4. Eseguire la demo
+
+Nel terzo terminale:
+
+```powershell
+npx hardhat run scripts/demo-local.ts --network localhost
+```
+
+Lo script esegue:
+
+- Tre richieste di mint da wallet diversi.
+- Le risposte del mock con i numeri `0`, `69` e `93`.
+- L’assegnazione ordinata di Essential, Gold e Super Gold.
+- Il ritiro dei tre NFT.
+- Il trasferimento di tutti gli NFT a un altro wallet.
+
+I `requestId` vengono recuperati dagli eventi delle singole transazioni.
+I numeri sono scelti soltanto per verificare le tre varianti nella demo:
+su Sepolia saranno forniti da Chainlink VRF.
+
+Nel secondo terminale vengono mostrate le richieste, la ricezione
+della casualità, le assegnazioni, i premi, i ritiri e i trasferimenti.
+Il diritto al tour resta al richiedente premiato anche dopo il trasferimento.
+
+### Ripetere la prova
+
+La demo richiede una collezione senza richieste precedenti
+e interrompe l’esecuzione se `totalRequested` è diverso da zero.
+
+Per ripeterla dall’inizio, fermare il listener e il nodo con `Ctrl+C`,
+riavviare il nodo e ripetere il deploy.
+Aggiornare gli indirizzi negli script e nel terminale del listener
+con quelli restituiti dal nuovo deploy.
+
+Il listener mostra gli eventi ricevuti mentre è attivo:
+lo script non implementa il recupero degli eventi storici.
+
 
 ## Implementazioni future
 
