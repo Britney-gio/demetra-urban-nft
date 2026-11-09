@@ -360,7 +360,6 @@ con quelli restituiti dal nuovo deploy.
 Il listener mostra gli eventi ricevuti mentre è attivo:
 lo script non implementa il recupero degli eventi storici.
 
-
 ## Implementazioni future
 
 ### Urban Essential — Contenuti esclusivi
