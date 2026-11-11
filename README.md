@@ -360,6 +360,36 @@ con quelli restituiti dal nuovo deploy.
 Il listener mostra gli eventi ricevuti mentre è attivo:
 lo script non implementa il recupero degli eventi storici.
 
+
+## Deploy e verifica su Sepolia
+
+- **Contratto:** [`0xbB79DC9cD92c2D169F77FAa847839840153728fD`](https://sepolia.etherscan.io/address/0xbB79DC9cD92c2D169F77FAa847839840153728fD#code)
+- **Rete:** Ethereum Sepolia
+- **Configurazione VRF:** Chainlink VRF v2.5, pagamento in ETH di Sepolia e limite di 500.000 gas per la callback.
+
+Su Sepolia ho completato il flusso di richiesta, risposta di Chainlink,
+assegnazione e ritiro per tre NFT: due Urban Essential e un Urban Gold.
+Ho verificato proprietari e metadati IPFS, un trasferimento diretto
+e un trasferimento del Gold eseguito da un wallet autorizzato tramite
+`approve` e `transferFrom`. L'approvazione si è azzerata al cambio
+di proprietà.
+
+La variante Urban Super Gold e l'evento `TourAssigned` sono stati
+verificati nella demo locale con il mock Chainlink.
+
+### Transazioni di riferimento su Sepolia
+
+| Operazione | Risultato verificato | Etherscan |
+| --- | --- | --- |
+| Deploy definitivo | Il contratto è stato distribuito con `callbackGasLimit` pari a `500_000`. | [Deploy](https://sepolia.etherscan.io/tx/0x3ba9b202c8eaab49762ce6dc53abd0fe4d87099ed62e8107fccd93aaf930aab8) |
+| Trasferimento diretto — token #1 | Il wallet principale ha trasferito Urban Essential all’Account 2. | [Trasferimento diretto](https://sepolia.etherscan.io/tx/0xbad7ec4d4c1322876388b04a8596433f46ef7bc9900d82af484151259e839ec9) |
+| Richiesta di mint — token #3 | L’Account 3 ha prenotato il token con `requestMint`. Il contratto ha emesso `AcceptedMintRequest`. | [Richiesta di mint](https://sepolia.etherscan.io/tx/0xda0bf401736577ac7ce999efd4501e5c4754fe8e3be9f8a30b0300769d6bc59b) |
+| Risposta VRF — token #3 | Chainlink ha consegnato il numero casuale. Il contratto lo ha salvato ed emesso `RandomnessReceived`. | [Risposta VRF](https://sepolia.etherscan.io/tx/0x512239838673247e2b2b3cb7b4224606a2248f3c9ba41acb62d61c374050e152) |
+| Assegnazione — token #3 | `assignVariants` ha assegnato Urban Gold ed emesso `VariantAssigned` e `GoldAssigned`. | [Assegnazione](https://sepolia.etherscan.io/tx/0x4d1f26dc768fb987f2cb5fcb0846f34c4fce69de752ce08326fcdfc9069c967c) |
+| Ritiro — token #3 | L’Account 3 ha chiamato `claimNFT(3)`. Il contratto ha creato l’NFT nel suo wallet ed emesso `SuccessfulMint`. | [Ritiro](https://sepolia.etherscan.io/tx/0xcec679ce41f9dd0302caa8420f4668d708653543e8455039a7644ae61ed5cdc6) |
+| Approvazione — token #3 | Con `approve`, l’Account 3 ha autorizzato l’Account 2 a trasferire il singolo NFT senza cedergli la proprietà. | [Approvazione](https://sepolia.etherscan.io/tx/0x5f669bfe5fc876dc6b323d28d45bb4d91510161ee5f3f921c3be03aec9fb46c6) |
+| Trasferimento autorizzato — token #3 | L’Account 2 ha firmato `transferFrom`, spostando Urban Gold dall’Account 3 al wallet principale. L’approvazione si è azzerata al cambio di proprietà. | [Trasferimento autorizzato](https://sepolia.etherscan.io/tx/0xf8329b21f3934c4da09af1989e90b33d9280178fbf4391c8880c7cc5a06fa5a6) |
+
 ## Implementazioni future
 
 ### Urban Essential — Contenuti esclusivi
