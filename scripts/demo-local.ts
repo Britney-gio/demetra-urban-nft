@@ -1,7 +1,10 @@
+// Creo Demo su un nodo Hardhat locale: riproduce richiesta, risposta VRF,assegnazione, ritiro e trasferimento per tutte e tre le varianti.
+// Uso il mock di Chainlink per ottenere Essential, Gold e Super Gold in una sola esecuzione, senza dipendere da un'estrazione reale.
+
 import { network } from "hardhat";
 
 const { ethers } = await network.create();
-
+// Uso gli indirizzi stampati da deploy-local.ts
 const demetraAddress = "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82";
 const coordinatorAddress = "0x610178dA211FEF7D417bC0e6FeD39F05609AD788";
 
@@ -23,9 +26,9 @@ if ((await demetra.totalRequested()) !== 0n) {
 }
 
 const participants = [
-  { signer: essentialUser, tokenId: 1n, randomNumber: 0n },
-  { signer: goldUser, tokenId: 2n, randomNumber: 69n },
-  { signer: superGoldUser, tokenId: 3n, randomNumber: 93n },
+  { signer: essentialUser, tokenId: 1n, randomNumber: 0n }, // Essential
+  { signer: goldUser, tokenId: 2n, randomNumber: 69n }, // Gold
+  { signer: superGoldUser, tokenId: 3n, randomNumber: 93n }, // Super Gold
 ];
 
 // Prenoto i token e recupero il requestId dall'evento della transazione.

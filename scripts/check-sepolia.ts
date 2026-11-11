@@ -1,3 +1,5 @@
+// Creo questo controllo di sola lettura prima del deploy: verifica che l'RPC punti a Sepolia (chain ID 11155111) e mostra l'indirizzo e il saldo del wallet configurato. Non invia transazioni né spende gas.
+
 import { network } from "hardhat";
 
 const { ethers } = await network.create();

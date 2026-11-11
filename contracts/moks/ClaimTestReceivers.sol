@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.34;
 
+// Creo contratti di supporto per testare il ritiro degli NFT tramite claimNFT.
+// Il primo non può ricevere l'NFT: verifichiamo che il ritiro fallisca senza perdere la variante già assegnata.
+// Il secondo tenta un nuovo ritiro dello stesso token durante _safeMint: verifichiamo che il doppio ritiro sia bloccato e che il primo riesca.
+
+
 // Ai contratti di prova basta conoscere queste due funzioni di Demetra.
 interface IDemetraClaim {
     function requestMint() external;

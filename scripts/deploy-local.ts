@@ -1,3 +1,6 @@
+// Creo script per distribuire il mock di Chainlink VRF e il contratto Demetra Urban su un nodo Hardhat locale, inserendo valori prova
+// Gli indirizzi stampati da questo script vanno poi usati in demo-local.ts per la demo locale.
+
 import { network } from "hardhat";
 
 const { ethers } = await network.create();

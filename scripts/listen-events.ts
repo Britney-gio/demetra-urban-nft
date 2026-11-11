@@ -1,4 +1,5 @@
 // Creo script per ascoltare gli eventi del contratto  e mostrare a Demetra i dati utili.
+
 import { network } from "hardhat";
 
 const { ethers } = await network.create();

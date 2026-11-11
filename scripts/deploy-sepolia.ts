@@ -1,3 +1,5 @@
+// Creo script per il deploy del contratto DemetraUrban su Ethereum Sepolia
+
 import { network } from "hardhat";
 
 const { ethers } = await network.create();
@@ -22,7 +24,7 @@ const keyHash =
 
 const requestConfirmations = 3;
 
-const callbackGasLimit = 300_000;
+const callbackGasLimit = 500_000;
 
 const essentialURI =
   "ipfs://bafkreiehhulbhtwwrpofbzjujcu235iouyaoauznzqwpttge74qrsl6equ";
