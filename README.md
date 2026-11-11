@@ -80,7 +80,7 @@ La richiesta utilizza:
 
 | Parametro              | Funzione                                                           |
 | ---------------------- | ------------------------------------------------------------------ |
-| Coordinator            | Contratto Chainlink che riceve la richiesta e consegna la risposta |
+| `Coordinator`            | Contratto Chainlink che riceve la richiesta e consegna la risposta |
 | `subscriptionId`       | Identificativo del conto che paga il servizio                      |
 | `keyHash`              | Identificativo della configurazione VRF e della gas lane           |
 | `requestConfirmations` | Conferme richieste prima della risposta                            |
@@ -141,9 +141,13 @@ L’evento `RandomnessReceived` segnala la ricezione.
 
 ### 3. Assegnazione ordinata
 
-Chiunque può chiamare `assignVariants(maxTokens)`, pagando il gas.
-La funzione elabora i token nell’ordine di prenotazione,
-partendo da `nextTokenToAssign`, senza permettere di saltarli.
+Chiunque può chiamare `assignVariants(maxTokens)`, pagando il gas
+della transazione. Il parametro `maxTokens` accetta valori da `1` a `100`
+e indica il numero massimo di token da elaborare nella stessa transazione.
+
+Il contratto elabora i token nell’ordine di prenotazione, partendo da
+`nextTokenToAssign`. Se la risposta VRF del prossimo token non è ancora
+disponibile, si ferma senza saltarlo.
 
 Per ogni token con casualità disponibile, assegna la variante
 in base al numero salvato e alle quantità rimaste.
